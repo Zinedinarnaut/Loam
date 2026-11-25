@@ -1,10 +1,32 @@
 # Loam
 
-Loam is an experimental Xbox Series compatibility layer for Windows. It boots the menus and renders the opening prison sequence on an RTX 5060 Ti. The scene still has rendering glitches, and Windows memory pressure can end a run.
+An attempt to run GTA VI on PC.
 
-## Build
+Loam is a Windows compatibility layer for Xbox Series software. It runs the game's x86-64 code on the host, supplies the console APIs it calls, and translates its GPU work for Direct3D 12.
 
-Use Windows x64, a CPU with AVX2, and the Rust toolchain pinned in this repo. Rendering needs a Direct3D 12 GPU with Shader Model 6.6. The world also uses mesh shaders.
+[![Loam frame-rate progress](https://zinedinarnaut.github.io/Loam/fps.svg)](https://zinedinarnaut.github.io/Loam/progress.html)
+
+[Progress](https://zinedinarnaut.github.io/Loam/progress.html) · [Changelog](CHANGELOG.md) · [Architecture](docs/architecture.md) · [Asset policy](docs/asset-policy.md)
+
+## Status
+
+| Stage | Result |
+| --- | --- |
+| Boot and menus | The title starts. Menu input works in the offline test setup. |
+| Checkpoint | A saved prison checkpoint loads. |
+| Opening scene | The prison interior and exterior render with lighting and texture glitches. |
+| Gameplay controls | Movement in the first mission still needs verification. |
+| Performance | 4.97 FPS in the prison doorway on an RTX 5060 Ti. |
+
+That run used the Series S profile at 1080p. In a 60-second window, 278 frame intervals gave a 195 ms median and 226 ms p95. The run reached its 12-minute limit with zero new NVIDIA driver errors.
+
+The current goal is sustained 33 FPS in controllable gameplay. Earlier tests reached the Windows memory reserve. The [progress page](https://zinedinarnaut.github.io/Loam/progress.html) records each run with its scene, settings, and outcome.
+
+## Build and run
+
+Windows x64, an AVX2 CPU, and the pinned Rust toolchain are required. Rendering uses a Direct3D 12 GPU with Shader Model 6.6 and mesh shaders.
+
+For BCPack decoding, set `LOAM_BCPACK_TABLES` to a local table file you are authorized to use before building. Source checks and synthetic tests can run without it.
 
 ```powershell
 cargo build --locked --profile diag -p victory --features diagnostics
@@ -12,20 +34,23 @@ Copy-Item victory.example.toml victory.toml
 .\target\diag\victory.exe config
 ```
 
-Set your paths in `victory.toml`. Keep title files and caches outside the checkout. For BCPack decoding, set `LOAM_BCPACK_TABLES` to the path of a table file you are authorized to use, then build. Without the tables, the source still builds and BCPack requests fail with an error.
-
-Runtime options and upstream build details are in [the inherited notes](UPSTREAM.md).
-
-## Frame timings
+Edit `victory.toml` to point to your own title files outside the checkout. The runtime can inspect or launch the supplied executable.
 
 ```powershell
-.\scripts\Measure-FrameTime.ps1 -LogPath .\boot.log -AnchorTimestamp '2026-11-25T23:06:51Z' -DurationSeconds 60
+.\target\diag\victory.exe inspect 'D:\title\game.exe'
+.\target\diag\victory.exe run 'D:\title\game.exe' --execute --console series-s
 ```
 
-Use a timestamp from your own log. Pick a stationary view after pipeline creation settles. The script reads individual frame intervals and prints mean FPS, median, and p95. Keep the camera, settings, and capture cadence the same when comparing runs.
+## Measure a run
 
-The [changelog](CHANGELOG.md) records tested milestones and known failures. The [asset policy](docs/asset-policy.md) covers what belongs in this repo.
+Choose a fixed camera after pipeline compilation settles. Use the same settings and capture cadence for both runs.
+
+```powershell
+.\scripts\Measure-FrameTime.ps1 -LogPath .\boot.log -AnchorTimestamp '2026-11-25T23:36:08Z' -DurationSeconds 60
+```
+
+The progress site is generated from [the recorded results](site/progress.json). The [inherited runtime notes](UPSTREAM.md) cover implementation details and debug switches.
 
 ## Credits
 
-Loam is based on the GPL-3.0-or-later work of Marvisak, fxceless, and their contributors. This repository began from the locally tested `780a22f` source snapshot. Build inputs stay on the user's machine. [License](LICENSE) · [Upstream notes and credits](UPSTREAM.md)
+Loam starts from the work of Marvisak, fxceless, and contributors. [VIctory](https://github.com/Marvisak/VIctory) · [fxceless fork](https://github.com/fxceless/victory-fork) · [GPL-3.0-or-later](LICENSE)

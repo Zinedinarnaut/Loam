@@ -1,3 +1,5 @@
+> Archived upstream notes. The results and commit history below describe the upstream projects. Loam's own history starts from a source snapshot.
+
 # VIctory fork (work in progress)
 
 A work-in-progress fork of [VIctory](https://github.com/Marvisak/VIctory), a

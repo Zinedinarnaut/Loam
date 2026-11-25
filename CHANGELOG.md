@@ -8,3 +8,4 @@
 - Added a configurable Windows window title. Verified that frame counter updates keep the configured title.
 - Added a PowerShell helper for measuring frame intervals from diagnostic logs.
 - Posted the source snapshot with its license and upstream credits. BCPack tables stay outside Git and are supplied at build time when needed.
+- Made Loam public and added the generated progress page, benchmark history, resolver inventory, and README badge.

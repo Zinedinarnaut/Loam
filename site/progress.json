@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "name": "Loam",
+    "repositoryUrl": "https://github.com/Zinedinarnaut/Loam",
+    "changelogUrl": "https://github.com/Zinedinarnaut/Loam/blob/main/CHANGELOG.md"
+  },
+  "target": {
+    "fps": 33,
+    "frameMs": 30.3
+  },
+  "current": {
+    "revision": "780a22f",
+    "hardware": "NVIDIA GeForce RTX 5060 Ti",
+    "fps": 4.97,
+    "frameMs": {
+      "mean": 201.34,
+      "median": 195,
+      "p95": 226
+    },
+    "sampleIntervals": 278,
+    "selectionSeconds": 60,
+    "guardedMinutes": 12,
+    "nvidiaErrorCount": 0,
+    "commitHeadroomGiBNearEnd": 5.5
+  },
+  "milestones": [
+    {
+      "label": "Boot and menu",
+      "status": "Verified",
+      "detail": "Reached the main menu in the Windows Series S profile."
+    },
+    {
+      "label": "Opening checkpoint",
+      "status": "Verified",
+      "detail": "Loaded the opening prison checkpoint."
+    },
+    {
+      "label": "3D rendering",
+      "status": "Verified",
+      "detail": "Rendered geometry in the opening prison scene, including the barred-window view."
+    },
+    {
+      "label": "Rendering fidelity",
+      "status": "Partial",
+      "detail": "Visible rendering glitches remain in the opening scene."
+    },
+    {
+      "label": "Gameplay movement",
+      "status": "Unverified",
+      "detail": "Sustained player movement and control through the opening sequence have yet to be verified."
+    },
+    {
+      "label": "Gameplay performance target",
+      "status": "Pending",
+      "detail": "A sustained gameplay benchmark is needed to meet the target."
+    }
+  ],
+  "earlierRuns": [
+    {
+      "label": "Serial hash · doorway view",
+      "fps": 3.24,
+      "medianMs": 304,
+      "p95Ms": 330,
+      "intervals": 269,
+      "outcome": "Reached the opening checkpoint."
+    },
+    {
+      "label": "Wide hash · bunks view",
+      "fps": 3.15,
+      "medianMs": 328,
+      "p95Ms": 360,
+      "intervals": 178,
+      "outcome": "Used limited texture catch-up. The Windows memory guard ended the run."
+    }
+  ],
+  "registry": {
+    "revision": "635083e",
+    "entries": [
+      {
+        "name": "kernel",
+        "count": 19
+      },
+      {
+        "name": "xgameruntime",
+        "count": 8
+      },
+      {
+        "name": "gameinput",
+        "count": 1
+      },
+      {
+        "name": "d3d12x",
+        "count": 6
+      },
+      {
+        "name": "audio",
+        "count": 9
+      },
+      {
+        "name": "dsp",
+        "count": 5
+      },
+      {
+        "name": "xg",
+        "count": 2
+      },
+      {
+        "name": "apu",
+        "count": 5
+      },
+      {
+        "name": "media",
+        "count": 1
+      },
+      {
+        "name": "dstorage",
+        "count": 1
+      },
+      {
+        "name": "files",
+        "count": 33
+      },
+      {
+        "name": "lifecycle",
+        "count": 4
+      },
+      {
+        "name": "net",
+        "count": 31
+      },
+      {
+        "name": "xmem",
+        "count": 13
+      },
+      {
+        "name": "device type",
+        "count": 4
+      }
+    ]
+  }
+}
