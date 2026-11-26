@@ -426,6 +426,45 @@ pub(super) fn branches_around(st: &Structured, needs: &[usize]) -> Option<Vec<us
     Some(out)
 }
 
+/// Check that the lowered loop counters cannot desynchronize a widened wave. A
+/// conditional latch uses its existing other edge at the limit. Its decision must
+/// be uniform among the arriving lanes, and a back edge must stay inside or outside
+/// each remaining lane-only region. An enclosed loop can run on a subset of lanes:
+/// the lowering does not place exchanges there, and those lanes rejoin on exit.
+/// A plain back jump can return early at the counter limit, bypassing a group barrier.
+/// Guest barriers must also be outside those regions, since the default mode
+/// keeps their waits even when only some lanes reach one.
+pub(super) fn wave_wide_can_sync(p: &Program, st: &Structured) -> bool {
+    let Some(regions) = lane_regions(st) else { return false };
+    let mut rank = vec![usize::MAX; p.blocks.len()];
+    let order = crate::ir::reverse_postorder(&p.blocks);
+    for (i, &b) in order.iter().enumerate() {
+        rank[b] = i;
+    }
+    let back = |from, to: usize| rank[to] <= rank[from];
+    for b in order {
+        if regions.iter().any(|(_, region)| region[b]) && p.blocks[b].insts.iter().any(|i| i.name() == "s_barrier") {
+            return false;
+        }
+        match st.exits[b] {
+            LaneExit::Jump(to) if back(b, to) => return false,
+            LaneExit::Branch { taken, not_taken, .. } => {
+                let header = match (back(b, taken), back(b, not_taken)) {
+                    (false, false) => continue,
+                    (true, false) => taken,
+                    (false, true) => not_taken,
+                    (true, true) => return false,
+                };
+                if regions.iter().any(|(branch, region)| *branch == b || region[header] != region[b]) {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+    }
+    true
+}
+
 /// Whether a refusal is of code that needs every lane of the wave where it stands (two host
 /// waves meeting there), which the other forms of the program may give it.
 pub(super) fn needs_every_lane(what: &str) -> bool {

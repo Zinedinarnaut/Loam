@@ -367,7 +367,10 @@ pub fn emit(
     // (a mask with lanes elsewhere is only helped by the exact forms: not by each half-wave
     // on its own)
     let exact_only = matches!(&original, Err(ShaderError::Unsupported { what, .. }) if *what == lower::MASK_ELSEWHERE);
-    if stuck && native.stage == HwStage::Cs && native.wave64 && lower::host_max_wave() == 32 {
+    let split_wave = native.stage == HwStage::Cs && native.wave64 && lower::host_max_wave() == 32;
+    let wide_mode = std::env::var_os("VICTORY_WAVE_WIDE");
+    let force_wide = wide_mode.as_deref().is_some_and(|v| v == "1");
+    if stuck && split_wave {
         let why = std::env::var_os("VICTORY_WAVE_WHY").is_some();
         let report = |what: &str, r: &Result<(HostShader, Option<u32>), ShaderError>| {
             if why {
@@ -419,12 +422,6 @@ pub fn emit(
                 }
             }
         }
-        // Off unless asked for (`VICTORY_WAVE_WIDE=1`), for a console wave run as two host
-        // waves: this form puts group barriers inside branches and loops, and runs 121-124
-        // lost the card in a submission of two programs that had just moved to it
-        // (`ptfx_CS_lightAtlas_Sprite` and `_Trail`). The 32-lane programs' form below, which
-        // has no barrier, stays on.
-        let wide_on = std::env::var_os("VICTORY_WAVE_WIDE").is_some_and(|v| v == "1");
         // exact first: each host wave on its own where that is exact (the idiom, every
         // form; no barriers), then the other exact forms; then approximate
         for exact in [true, false] {
@@ -445,8 +442,10 @@ pub fn emit(
                 }
                 // Still stopped where not every lane runs: the per-lane branches around
                 // those places taken as the console takes them, by the whole wave at once
-                // ([`widen`]), at two group barriers per such branch.
-                if wide_on {
+                // ([`widen`]), at two group barriers per such branch. Prefer it only
+                // when the group can synchronize. The diagnostic override still
+                // allows the unrestricted form for isolated investigation.
+                if wide_mode.as_deref().is_none_or(|v| v != "0") && (force_wide || group_sync() != 0) {
                     let bases = [
                         deep.as_ref().map(|f| &f.0),
                         forms[1].1.as_ref().map(|f| &f.0),
@@ -454,7 +453,7 @@ pub fn emit(
                         Some(p),
                     ];
                     if let Some(base) = bases.into_iter().flatten().next() {
-                        let again = widen(c, native, base, why);
+                        let again = widen(c, native, base, why, !force_wide);
                         report("wave-wide branches", &again);
                         if done(&again) {
                             return again.map(|(shader, _)| shader);
@@ -514,9 +513,10 @@ pub fn emit(
         Err(ShaderError::Unsupported { what, .. })
             if native.stage == HwStage::Cs
                 && what == lower::LANE_MASK
-                && std::env::var_os("VICTORY_WAVE_WIDE").is_none_or(|v| v != "0") =>
+                && (!split_wave || force_wide)
+                && wide_mode.as_deref().is_none_or(|v| v != "0") =>
         {
-            let again = widen(c, native, p, std::env::var_os("VICTORY_WAVE_WHY").is_some());
+            let again = widen(c, native, p, std::env::var_os("VICTORY_WAVE_WHY").is_some(), false);
             match again {
                 Ok(_) => again,
                 Err(_) => emit_program(c, native, p, st, io, res),
@@ -553,6 +553,7 @@ fn widen(
     native: &NativeProgram,
     p: &ir::Program,
     why: bool,
+    check_sync: bool,
 ) -> Result<(HostShader, Option<u32>), ShaderError> {
     const NOT: ShaderError = ShaderError::Unsupported {
         offset: 0,
@@ -584,6 +585,12 @@ fn widen(
                 if lower::needs_every_lane(what) || *what == lower::LANE_MASK && !needs.is_empty())
             || matches!(&r, Ok((_, Some(64)))) && !needs.is_empty();
         if !stuck {
+            if check_sync && matches!(&r, Ok((_, Some(32)))) && !lower::wave_wide_can_sync(p, &st) {
+                return Err(ShaderError::Unsupported {
+                    offset: 0,
+                    what: "wave-wide branches without convergent group synchronization",
+                });
+            }
             if why {
                 eprintln!("WAVE64-WIDE {} branches taken wave-wide", wide.len());
             }

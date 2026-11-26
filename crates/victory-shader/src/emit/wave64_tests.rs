@@ -373,7 +373,12 @@ fn a_wave_or_inside(skip: u32, name: &str) {
         _ => unreachable!(),
     };
     assert!(st.guards[inside].iter().any(Option::is_some));
-    let shader = lowered(&native, &p, &wide).expect("lower");
+    let container = crate::dxbc::Container { digest: [0; 16], version: (1, 0), parts: Vec::new() };
+    let was = lower::TEST_HOST_WAVE.replace(Some(32));
+    let result = super::widen(&container, &native, &p, false, true);
+    lower::TEST_HOST_WAVE.set(was);
+    let (shader, wave) = result.expect("checked wave-wide lowering");
+    assert_eq!(wave, Some(32));
     if let Ok(mut v) = validator::Validator::load(validator::Validator::default_path().as_deref()) {
         let mut copy = shader.dxil.clone();
         v.validate(&mut copy).expect("DXIL validation failed");
@@ -415,6 +420,42 @@ fn a_wave_or_inside(skip: u32, name: &str) {
         assert_eq!(out[0][0], expected, "{name}: {below} threads in the branch");
     }
     eprintln!("ran on the hardware device ({name}): the OR of both halves in every case");
+}
+
+#[test]
+fn wave_wide_rejects_loop_counters_that_can_split_the_group() {
+    let converges = |words: &[u32]| {
+        let native = native(words);
+        let p = ir::build(&native.code, native.wave64, native.vgprs).expect("ir::build");
+        let st = structure::structure(&p).expect("structure");
+        lower::wave_wide_can_sync(&p, &st)
+    };
+    assert!(converges(&[
+        0x8080_8100, // s_sub_u32 s0, s0, 1
+        0xBF07_8000, // s_cmp_lg_u32 s0, 0
+        0xBF85_FFFD, // s_cbranch_scc1 back to the subtract
+    ]));
+    assert!(!converges(&[
+        0xBF06_8000, // s_cmp_eq_u32 s0, 0
+        0xBF85_0001, // s_cbranch_scc1 to the end
+        0xBF82_FFFF, // s_branch to itself, which can abort the shader at its limit
+    ]));
+    assert!(!converges(&[
+        0xBE82_0480, // s_mov_b64 s[2:3], 0
+        0x4A00_0081, // v_add_nc_u32 v0, 1, v0
+        0x7D84_0080, // v_cmp_eq_u32 vcc, 0, v0
+        0x8882_026A, // s_or_b64 s[2:3], vcc, s[2:3]
+        0x8AFE_027E, // s_andn2_b64 exec, exec, s[2:3]
+        0xBF89_FFFB, // s_cbranch_execnz back to the add, exits vary per lane
+        0x88FE_027E, // s_or_b64 exec, exec, s[2:3]
+    ]));
+    assert!(!converges(&[
+        0x7D88_0000, // v_cmp_gt_u32 vcc, s0, v0
+        0xBE8C_246A, // s_and_saveexec_b64 s[12:13], vcc
+        0xBF88_0001, // s_cbranch_execz to the EXEC restore
+        0xBF8A_0000, // s_barrier inside the branch
+        0xBEFE_040C, // s_mov_b64 exec, s[12:13]
+    ]));
 }
 
 /// Runs `shader` on the hardware device with the root constants `s0`, `s1` and gives dword 0
