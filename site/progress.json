@@ -6,8 +6,8 @@
     "changelogUrl": "https://github.com/Zinedinarnaut/Loam/blob/main/CHANGELOG.md"
   },
   "target": {
-    "fps": 33,
-    "frameMs": 30.3
+    "fps": 30,
+    "frameMs": 33.3
   },
   "roadmap": [
     {
@@ -51,7 +51,7 @@
             { "label": "Reduce CPU submission time", "status": "Pending" },
             { "label": "Reduce GPU execution time", "status": "Pending" },
             { "label": "Reduce copy-back time", "status": "Pending" },
-            { "label": "Sustained 33 FPS gameplay", "status": "Unverified" }
+            { "label": "Sustained gameplay at 33.3 ms per frame", "status": "Unverified" }
           ]
         }
       ]
@@ -63,7 +63,7 @@
           "id": "d3d12-pipelines",
           "label": "RTX pipeline checks by shader",
           "status": "Partial",
-          "evidence": "A D3D12 debug-layer test on the RTX 5060 Ti found that the three rejected compute shaders requested 64-lane waves on a device that supports 32. Particle visibility and alpha prefilter now emit validated 32-lane DXIL and create D3D12 pipelines in both the standalone probe and a fresh Loam boot. The game bound both pipelines as the opening scene loaded. The experimental separate-workgroup path also emitted valid 32-lane DXIL for cascading shadows and issued its indirect dispatch in a fresh RTX replay. The prison yard rendered with visual artifacts. A separate timing run measured a 157 ms median in the later opening scene. Defrag still needs ordered shared-memory operations across both waves and requests 64 lanes.",
+          "evidence": "November 26, 2026. On the RTX 5060 Ti, particle visibility and alpha prefilter created D3D12 pipelines and bound them during the opening scene. Cascading Shadows created a Wave32 pipeline and recorded indirect dispatches in two more replays. The Windows memory guard ended both replays before visual output could be verified. A synthetic Defrag test verified shared-memory compare-and-swap across two logical waves on the RTX. The game's Defrag pipeline still requests 64 lanes and fails pipeline creation. It needs the shared-memory scheduler integrated into shader translation.",
           "doneWhen": "Resolve host refusals and shader translation failures for mission pipelines. Verify the required draws and dispatches during movement.",
           "checks": [
             { "label": "Create pipelines to render the first room", "status": "Verified" },
