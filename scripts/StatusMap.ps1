@@ -78,8 +78,20 @@ function New-LoamRoadmap {
                     $content.Add("    <rect x='$($cell.X)' y='$($cell.Y)' width='$($cell.W)' height='$($cell.H)' fill='$checkColor' class='check'><title>$checkLabel ($($check.Status))</title></rect>")
                 }
             }
-            $font = [int][Math]::Min(15, [Math]::Floor(($w0 - 10) / ($tile.Label.Length * 0.64)))
-            $content.Add("    <text x='$($x0 + 5)' y='$($y0 + 15)' class='tile-label' font-size='$font'>$name</text>")
+            $lines = @($tile.Label)
+            $labelCapacity = [int][Math]::Floor(($w0 - 10) / 8)
+            if (!$tile.Checks.Count -and $h0 -ge 35 -and $labelCapacity -gt 0 -and $tile.Label.Length -gt $labelCapacity) {
+                $breakAt = $tile.Label.LastIndexOf(' ', $labelCapacity)
+                if ($breakAt -gt 0) {
+                    $lines = @($tile.Label.Substring(0, $breakAt), $tile.Label.Substring($breakAt + 1))
+                }
+            }
+            $longest = ($lines | ForEach-Object Length | Measure-Object -Maximum).Maximum
+            $font = [int][Math]::Min(15, [Math]::Floor(($w0 - 10) / ($longest * 0.56)))
+            for ($line = 0; $line -lt $lines.Count; $line++) {
+                $label = ConvertTo-MapLabel $lines[$line]
+                $content.Add("    <text x='$($x0 + 5)' y='$($y0 + 15 + $line * 16)' class='tile-label' font-size='$font'>$label</text>")
+            }
             $content.Add('  </a>')
         }
     }

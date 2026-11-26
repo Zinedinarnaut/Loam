@@ -10,7 +10,7 @@ Loam is a Windows compatibility layer for Xbox Series software. It runs the game
 
 [![Windows memory status](https://zinedinarnaut.github.io/Loam/windows-memory.svg)](https://zinedinarnaut.github.io/Loam/progress.html#task-windows-memory) [![Opening mission status](https://zinedinarnaut.github.io/Loam/mission-completion.svg)](https://zinedinarnaut.github.io/Loam/progress.html#task-mission-completion) [![Gameplay FPS target](https://zinedinarnaut.github.io/Loam/fps-target.svg)](https://zinedinarnaut.github.io/Loam/progress.html#task-frame-rate)
 
-[![Loam status grid showing missing pipelines, VOP3, SMEM, and other work](https://zinedinarnaut.github.io/Loam/status-map.svg?v=5)](https://zinedinarnaut.github.io/Loam/progress.html#status-map)
+[![Loam status grid showing missing pipelines, VOP3, SMEM, and other work](https://zinedinarnaut.github.io/Loam/status-map.svg?v=6)](https://zinedinarnaut.github.io/Loam/progress.html#status-map)
 
 Small cells show individual checks.
 
