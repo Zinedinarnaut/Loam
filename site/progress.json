@@ -272,6 +272,16 @@
   ],
   "earlierRuns": [
     {
+      "label": "Serial hash · barred-window comparison",
+      "fps": 3.21,
+      "meanMs": 311.91,
+      "medianMs": 306,
+      "p95Ms": 348,
+      "intervals": 182,
+      "selectionSeconds": 60,
+      "outcome": "Matched the 4.97 FPS Wide run on runtime 780a22f, RTX 5060 Ti, Series S at 1080p, and 1 MiB shader windows. Both samples had a stationary camera and no pipeline creation."
+    },
+    {
       "label": "1.5 GiB GPU upload budget · barred-window view",
       "fps": 5.15,
       "meanMs": 194.36,

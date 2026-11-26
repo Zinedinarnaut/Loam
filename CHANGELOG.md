@@ -5,6 +5,7 @@
 - Reached the prison checkpoint on an RTX 5060 Ti with the Series S profile. The serial hash run measured 3.24 FPS, 304 ms median, and 330 ms p95 over 269 frames.
 - Added an opt-in parallel GPU buffer hash. A separate wide-hash run with limited texture catch-up reached the bunks at 3.15 FPS over 60 seconds. The Windows memory guard ended the run. The camera and texture settings differed from the serial run.
 - Reduced shader buffer windows to 1 MiB and shortened their tails. Wide mode measured 4.97 FPS, 195 ms median, and 226 ms p95 across 278 frames in a 60-second barred-window sample. This was a different runtime preset from the earlier runs. The run reached its 12-minute limit with no new NVIDIA driver errors and about 5.5 GiB of Windows commit headroom near the end.
+- Repeated the 60-second barred-window sample in Serial mode on the same `780a22f` runtime, RTX 5060 Ti, and Series S preset. Serial measured 3.21 FPS, 306 ms median, and 348 ms p95 across 182 frame intervals. Neither window had shader pipeline creation. GPU send, hash, and compare averaged about 116 ms per frame in Serial and 11 ms in Wide.
 - Added a configurable Windows window title. Verified that frame counter updates keep the configured title.
 - Added a PowerShell helper for measuring frame intervals from diagnostic logs.
 - Posted the source snapshot with its license and upstream credits. BCPack tables stay outside Git and are supplied at build time when needed.
