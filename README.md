@@ -10,11 +10,13 @@ Loam is a Windows compatibility layer for Xbox Series software. It runs the game
 
 [![Windows memory status](https://zinedinarnaut.github.io/Loam/windows-memory.svg)](https://zinedinarnaut.github.io/Loam/progress.html#task-windows-memory) [![Opening mission status](https://zinedinarnaut.github.io/Loam/mission-completion.svg)](https://zinedinarnaut.github.io/Loam/progress.html#task-mission-completion) [![Gameplay FPS target](https://zinedinarnaut.github.io/Loam/fps-target.svg)](https://zinedinarnaut.github.io/Loam/progress.html#task-frame-rate)
 
-[![Loam playability roadmap](https://zinedinarnaut.github.io/Loam/status-map.svg?v=4)](https://zinedinarnaut.github.io/Loam/progress.html#status-map)
+[![Loam status grid showing missing pipelines, VOP3, SMEM, and other work](https://zinedinarnaut.github.io/Loam/status-map.svg?v=5)](https://zinedinarnaut.github.io/Loam/progress.html#status-map)
+
+Small cells show individual checks.
 
 The menu, opening checkpoint, and scripted movement are verified. Windows memory is the first blocker to finishing the mission. The fastest measured stationary sample was 5.15 FPS on an RTX 5060 Ti. The goal is sustained gameplay at 33 FPS.
 
-[Tile evidence and completion checks](https://zinedinarnaut.github.io/Loam/progress.html#roadmap-details) · [Shader opcode reference](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) · [Windows API registry](https://zinedinarnaut.github.io/Loam/progress.html#registry)
+[Missing pipelines](https://zinedinarnaut.github.io/Loam/progress.html#task-d3d12-pipelines) · [VOP3](https://zinedinarnaut.github.io/Loam/progress.html#task-shader-translation) · [SMEM](https://zinedinarnaut.github.io/Loam/progress.html#task-smem) · [All tile details](https://zinedinarnaut.github.io/Loam/progress.html#roadmap-details) · [Opcode reference](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes)
 
 ## Benchmarks
 

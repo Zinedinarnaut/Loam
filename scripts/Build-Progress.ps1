@@ -32,6 +32,7 @@ function Read-Field {
         'string' { $value -is [string] -and -not [string]::IsNullOrWhiteSpace($value) }
         'object' { $value -is [Collections.IDictionary] }
         'array' { $value -is [array] -and $value.Count -gt 0 }
+        'bool' { $value -is [bool] }
         'positive' {
             ($value -is [long] -or $value -is [int] -or $value -is [double]) -and
                 [double]::IsFinite($value) -and $value -gt 0
@@ -82,11 +83,11 @@ $targetFps = Format-Number (Read-Field $target 'fps' 'target' positive)
 $targetMs = Format-Number (Read-Field $target 'frameMs' 'target' positive)
 
 $roadmapStates = [ordered]@{
-    Verified = @{ Surface = '#12251c'; Stroke = '#285238'; Accent = '#7ee29a'; Badge = '#237a3b' }
-    Partial = @{ Surface = '#272013'; Stroke = '#5a4923'; Accent = '#f1cd78'; Badge = '#8a5f13' }
-    Blocked = @{ Surface = '#32191d'; Stroke = '#70404a'; Accent = '#ff9c9d'; Badge = '#a33642' }
-    Unverified = @{ Surface = '#172135'; Stroke = '#384b69'; Accent = '#adc7f2'; Badge = '#345986' }
-    Pending = @{ Surface = '#20242d'; Stroke = '#424a58'; Accent = '#bcc5d4'; Badge = '#515a69' }
+    Verified = @{ Surface = '#12251c'; Badge = '#237a3b' }
+    Partial = @{ Surface = '#272013'; Badge = '#8a5f13' }
+    Blocked = @{ Surface = '#32191d'; Badge = '#a33642' }
+    Unverified = @{ Surface = '#172135'; Badge = '#345986' }
+    Pending = @{ Surface = '#20242d'; Badge = '#515a69' }
 }
 $roadmapById = [Collections.Generic.Dictionary[string, object]]::new([StringComparer]::Ordinal)
 $roadmapTracks = @(
@@ -97,6 +98,7 @@ $roadmapTracks = @(
             $trackPath = "roadmap[$trackIndex]"
             $trackName = Read-Field $trackData 'label' $trackPath string
             $tileData = Read-Field $trackData 'tiles' $trackPath array
+            $wide = $trackData.Contains('wide') -and (Read-Field $trackData 'wide' $trackPath bool)
             $tiles = @(
                 for ($tileIndex = 0; $tileIndex -lt $tileData.Count; $tileIndex++) {
                     $item = $tileData[$tileIndex]
@@ -109,18 +111,36 @@ $roadmapTracks = @(
                     if ($status -cnotin $roadmapStates.Keys) {
                         throw "Unknown roadmap status in $path."
                     }
+                    $checks = @(
+                        if ($item.Contains('checks')) {
+                            $checkData = Read-Field $item 'checks' $path array
+                            for ($checkIndex = 0; $checkIndex -lt $checkData.Count; $checkIndex++) {
+                                $checkPath = "$path.checks[$checkIndex]"
+                                $check = $checkData[$checkIndex]
+                                $checkStatus = Read-Field $check 'status' $checkPath string
+                                if ($checkStatus -cnotin $roadmapStates.Keys) {
+                                    throw "Unknown roadmap check status in $checkPath."
+                                }
+                                [pscustomobject]@{
+                                    Label = Read-Field $check 'label' $checkPath string
+                                    Status = $checkStatus
+                                }
+                            }
+                        }
+                    )
                     $tile = [pscustomobject]@{
                         Id = $id
                         Label = Read-Field $item 'label' $path string
                         Status = $status
                         Evidence = Read-Field $item 'evidence' $path string
                         DoneWhen = Read-Field $item 'doneWhen' $path string
+                        Checks = $checks
                     }
                     $roadmapById.Add($id, $tile)
                     $tile
                 }
             )
-            [pscustomobject]@{ Label = $trackName; Tiles = $tiles }
+            [pscustomobject]@{ Label = $trackName; Tiles = $tiles; Wide = $wide }
         }
     }
 )
@@ -292,15 +312,29 @@ $sourceHtml = ''
 if ($roadmapTracks.Count) {
     $statusMap = New-LoamRoadmap -Tracks $roadmapTracks -States $roadmapStates
     $statusHeading = 'Playability roadmap'
-    $statusAlt = "Loam playability roadmap with $($roadmapById.Count) tiles. The evidence and completion checks follow below."
+    $statusAlt = "Loam playability status grid with $($roadmapById.Count) tiles, including VOP3, SMEM, and missing pipelines. The evidence and completion checks follow below."
     $sections = foreach ($track in $roadmapTracks) {
         $cards = foreach ($tile in $track.Tiles) {
+            $checkDetails = if ($tile.Checks.Count) {
+                $items = foreach ($check in $tile.Checks) {
+                    "              <li>$(Encode-Html $check.Label) <span class='task-state'>($($check.Status))</span></li>"
+                }
+                @"
+          <details>
+            <summary>Checks</summary>
+            <ul>
+$($items -join [Environment]::NewLine)
+            </ul>
+          </details>
+"@
+            }
             @"
         <article id="task-$($tile.Id)" class="task">
           <h4>$(Encode-Html $tile.Label)</h4>
           <p class="task-state">$($tile.Status)</p>
           <p>$(Encode-Html $tile.Evidence)</p>
           <p><strong>Completion check.</strong> $(Encode-Html $tile.DoneWhen)</p>
+$checkDetails
         </article>
 "@
         }

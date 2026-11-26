@@ -18,3 +18,4 @@
 - Added DXIL translation for the VOP3 packed-byte average instruction, `v_lerp_u8`. Verified independent byte rounding on an RTX 5060 Ti and WARP.
 - Fixed disassembly for the SMEM instructions `s_memtime`, `s_memrealtime`, and `s_get_waveid_in_workgroup`. They now print just their destination register.
 - Replaced the headline status tiles with the GTA VI playability roadmap. Each tile records the evidence and its completion check. Opcode and resolver maps remain available in the source reference.
+- Restored the dense status grid in the README, with separate work tiles for missing pipelines, VOP3, and SMEM. The smaller cells show individual checks.

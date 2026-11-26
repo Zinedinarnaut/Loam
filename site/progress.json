@@ -18,7 +18,13 @@
           "label": "Windows memory",
           "status": "Blocked",
           "evidence": "The 1.5 GiB GPU upload run reached the Windows memory reserve about 35 seconds after movement began. The 2 GiB run reached the reserve during scene loading.",
-          "doneWhen": "Load the checkpoint and move through the mission while staying above the existing Windows memory reserve."
+          "doneWhen": "Load the checkpoint and move through the mission while staying above the existing Windows memory reserve.",
+          "checks": [
+            { "label": "Load with 1.5 GiB GPU upload", "status": "Verified" },
+            { "label": "Scene loading with 2 GiB GPU upload", "status": "Blocked" },
+            { "label": "Memory headroom during movement", "status": "Blocked" },
+            { "label": "Memory during room transitions", "status": "Unverified" }
+          ]
         },
         {
           "id": "asset-streaming",
@@ -39,13 +45,33 @@
           "label": "Frame rate",
           "status": "Pending",
           "evidence": "The RTX 5060 Ti measured 5.15 FPS and 194.36 ms per frame in a stationary 60-second sample. Submission preparation and GPU work each averaged about 80 ms in diagnostics from that window.",
-          "doneWhen": "Reduce submission, GPU, and copy-back time, then meet the published FPS target during sustained movement on the RTX 5060 Ti. Report mean, median, and 95th-percentile frame times."
+          "doneWhen": "Reduce submission, GPU, and copy-back time, then meet the published FPS target during sustained movement on the RTX 5060 Ti. Report mean, median, and 95th-percentile frame times.",
+          "checks": [
+            { "label": "Stationary RTX benchmark", "status": "Verified" },
+            { "label": "Reduce CPU submission time", "status": "Pending" },
+            { "label": "Reduce GPU execution time", "status": "Pending" },
+            { "label": "Reduce copy-back time", "status": "Pending" },
+            { "label": "Sustained 33 FPS gameplay", "status": "Unverified" }
+          ]
         }
       ]
     },
     {
-      "label": "Rendering",
+      "label": "Rendering and pipelines",
       "tiles": [
+        {
+          "id": "d3d12-pipelines",
+          "label": "Missing pipelines",
+          "status": "Partial",
+          "evidence": "The stationary benchmark reported around 270 skips per frame under missing host pipelines. Most were suppressed ray-tracing builder stages. Diagnostics also recorded host refusals and a compute translation failure.",
+          "doneWhen": "Resolve host refusals and shader translation failures for mission pipelines. Verify the required draws and dispatches during movement.",
+          "checks": [
+            { "label": "Create pipelines to render the first room", "status": "Verified" },
+            { "label": "Resolve D3D12 host refusals", "status": "Partial" },
+            { "label": "Fix the reported compute translation failure", "status": "Pending" },
+            { "label": "Verify required direct and indirect draws during movement", "status": "Unverified" }
+          ]
+        },
         {
           "id": "rtx-rendering",
           "label": "RTX 5060 Ti",
@@ -54,18 +80,11 @@
           "doneWhen": "Confirm the physical RTX adapter is doing the rendering and display the opening room."
         },
         {
-          "id": "d3d12-pipelines",
-          "label": "D3D12 pipelines",
+          "id": "rt-builder",
+          "label": "RT builder",
           "status": "Partial",
-          "evidence": "The first room rendered. Stationary diagnostics reported about 270 skipped draws per frame for missing host pipelines.",
-          "doneWhen": "Create the pipelines needed by the opening mission and verify its direct and indirect draws during movement."
-        },
-        {
-          "id": "shader-translation",
-          "label": "VOP3 and SMEM",
-          "status": "Partial",
-          "evidence": "VOP3 byte averaging passed RTX and WARP tests. Synthetic SMEM scalar-buffer load checks also pass.",
-          "doneWhen": "Identify the shader forms behind failed mission pipelines and verify their DXIL outputs, including wave and resource behavior."
+          "evidence": "The ray-tracing builder is gated when its host pipelines are unavailable. Its suppressed stages account for most of the stationary pipeline skips.",
+          "doneWhen": "Create the required builder pipelines and validate that the resulting acceleration structures support the mission's trace passes."
         },
         {
           "id": "textures-and-depth",
@@ -84,7 +103,8 @@
       ]
     },
     {
-      "label": "Opening mission",
+      "label": "Opening mission and PC controls",
+      "wide": true,
       "tiles": [
         {
           "id": "boot-and-menu",
@@ -113,12 +133,7 @@
           "status": "Blocked",
           "evidence": "The memory reserve stopped the test after the first movement sequence.",
           "doneWhen": "Play from the opening checkpoint through the mission and reach the following checkpoint."
-        }
-      ]
-    },
-    {
-      "label": "Controls, audio and saves",
-      "tiles": [
+        },
         {
           "id": "keyboard-and-mouse",
           "label": "Keyboard and mouse",
@@ -146,6 +161,56 @@
           "status": "Unverified",
           "evidence": "Local XGameSave persistence passes synthetic tests. A checkpoint created by the title has yet to be verified across restarts.",
           "doneWhen": "Create a checkpoint in-game, exit, relaunch, and resume from that checkpoint."
+        }
+      ]
+    },
+    {
+      "label": "Shader ALU",
+      "tiles": [
+        {
+          "id": "shader-translation",
+          "label": "VOP3",
+          "status": "Partial",
+          "evidence": "Synthetic VOP3 fixtures cover byte averaging on RTX and WARP, floating-point median, and 64-bit compare encodings. The mission's remaining translation failures still need attribution.",
+          "doneWhen": "Identify any mission VOP3 cases that fail translation and verify their live DXIL outputs, including operand modifiers and alias encodings.",
+          "checks": [
+            { "label": "Byte average and per-byte rounding", "status": "Verified" },
+            { "label": "Floating-point median fixtures", "status": "Verified" },
+            { "label": "64-bit compare fixture", "status": "Verified" },
+            { "label": "Check VOP3 forms implicated by mission diagnostics", "status": "Pending" }
+          ]
+        },
+        {
+          "id": "wave64-on-rtx",
+          "label": "Wave64 on RTX",
+          "status": "Partial",
+          "evidence": "Loam implements several wave64 translation paths. The ray-tracing notes record host refusals where shaders still require 64 lanes.",
+          "doneWhen": "Preserve cross-lane results for the mission's wave64 shaders on the RTX adapter and confirm their host pipelines can run."
+        }
+      ]
+    },
+    {
+      "label": "Shader memory",
+      "tiles": [
+        {
+          "id": "smem",
+          "label": "SMEM",
+          "status": "Partial",
+          "evidence": "Synthetic scalar-buffer load checks cover x4, x8, and x16 loads. The required title-level scalar memory paths still need verification.",
+          "doneWhen": "Validate the scalar loads used by mission shaders, including dynamic offsets, descriptor tracing, and bounds.",
+          "checks": [
+            { "label": "Scalar buffer load x4, x8, and x16 fixtures", "status": "Verified" },
+            { "label": "Mission scalar reads with dynamic offsets", "status": "Unverified" },
+            { "label": "Mission scalar read results and bounds", "status": "Unverified" },
+            { "label": "Track descriptors used by mission scalar reads", "status": "Partial" }
+          ]
+        },
+        {
+          "id": "shader-address-residency",
+          "label": "Shader address residency",
+          "status": "Partial",
+          "evidence": "The shader address translation path looks up host copies by page. The ray-tracing notes document zero reads and dropped stores when a needed page is absent.",
+          "doneWhen": "Provide all pages reached by mission shaders and verify loads and stores across address windows."
         }
       ]
     }
