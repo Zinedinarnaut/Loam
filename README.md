@@ -4,7 +4,7 @@ An attempt to run GTA VI on PC.
 
 Loam is a Windows compatibility layer for Xbox Series software. It runs the game's x86-64 code on the host, supplies the console APIs it calls, and translates its GPU work for Direct3D 12.
 
-[Progress](https://zinedinarnaut.github.io/Loam/progress.html) · [Changelog](CHANGELOG.md) · [Architecture](docs/architecture.md) · [Asset policy](docs/asset-policy.md)
+[Build and run](#build-and-run) · [Benchmarks](#benchmarks) · [Progress](https://zinedinarnaut.github.io/Loam/progress.html) · [Changelog](CHANGELOG.md) · [Architecture](docs/architecture.md) · [Asset policy](docs/asset-policy.md)
 
 ## Status
 
@@ -20,34 +20,77 @@ The opening checkpoint loads. Player movement still needs verification.
 
 Loam [recompiles GFX10 shaders](crates/victory-shader/src/lib.rs) for Direct3D 12.
 
+## Benchmarks
+
+| Opening prison scene | FPS | Median frame time | P95 frame time | Intervals |
+| --- | ---: | ---: | ---: | ---: |
+| Barred-window view, reduced shader buffer windows | **4.97** | 195 ms | 226 ms | 278 |
+| Doorway view, serial hash | 3.24 | 304 ms | 330 ms | 269 |
+| Bunks view, wide hash with limited texture catch-up | 3.15 | 328 ms | 360 ms | 178 |
+
+The barred-window result used an RTX 5060 Ti and the Series S profile at revision `780a22f`. Its 60-second sample averaged 201.34 ms per frame. Camera views and runtime settings varied across runs. The bunks run ended at the Windows memory guard. [Full results](https://zinedinarnaut.github.io/Loam/progress.html#benchmark) · [Benchmark data](site/progress.json)
+
 ## Build and run
 
-Windows x64, an AVX2 CPU, and the pinned Rust toolchain are required. Rendering uses a Direct3D 12 GPU with Shader Model 6.6 and mesh shaders.
+### Requirements
 
-For BCPack decoding, set `LOAM_BCPACK_TABLES` to a local table file you are authorized to use before building. Source checks and synthetic tests can run without it.
+- **Build on Windows 10 or 11 (x64).** Install Git, Rust via [rustup](https://rustup.rs/), and the **Desktop development with C++** workload with the Windows SDK. [Microsoft C++ Build Tools](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line)
+- **To run a title,** you need an AVX2 CPU, a Direct3D 12 GPU with Shader Model 6.6 and mesh shaders, and your own Xbox Series title files.
 
-```powershell
-cargo build --locked --profile diag -p victory --features diagnostics
-Copy-Item victory.example.toml victory.toml
-.\target\diag\victory.exe config
-```
+### 1. Build Loam
 
-Edit `victory.toml` to point to your own title files outside the checkout. The runtime can inspect or launch the supplied executable.
+Open PowerShell and run the following. If you already cloned Loam, start with `rustup toolchain install` from the repository folder.
 
 ```powershell
-.\target\diag\victory.exe inspect 'D:\title\game.exe'
-.\target\diag\victory.exe run 'D:\title\game.exe' --execute --console series-s
+git clone https://github.com/Zinedinarnaut/Loam.git
+Set-Location Loam
+rustup toolchain install
+cargo build --locked --release -p victory
 ```
 
-## Measure a run
+The build produces `target\release\victory.exe`, Loam's command-line tool.
 
-Choose a fixed camera after pipeline compilation settles. Use the same settings and capture cadence for both runs.
+For BCPack texture decoding, set `$env:LOAM_BCPACK_TABLES` to the path of a local table file you’re authorized to use, then run the build command again. Keep the file outside the checkout. [Asset policy](docs/asset-policy.md#local-bcpack-tables)
+
+### 2. Check your title executable
+
+Replace the example path with your own Xbox Series executable. Keep it alongside its title files in a folder outside the checkout. The `inspect` command reads the executable and prints its details.
 
 ```powershell
-.\scripts\Measure-FrameTime.ps1 -LogPath .\boot.log -AnchorTimestamp '2026-11-25T23:36:08Z' -DurationSeconds 60
+$titleExe = 'D:\XboxTitles\Example\Game.exe'
+.\target\release\victory.exe inspect $titleExe
 ```
 
-The progress site is generated from [the recorded results](site/progress.json). The [inherited runtime notes](UPSTREAM.md) cover implementation details and debug switches.
+### 3. Run the title
+
+```powershell
+.\target\release\victory.exe run $titleExe --execute --console series-s
+```
+
+`--execute` starts the title. `--console series-s` selects the profile used for the benchmark above. The default profile is Series X.
+
+Loam defaults to `%LOCALAPPDATA%\victory\cache` for generated files and `%LOCALAPPDATA%\victory\data` for saves and crash logs. To change those locations, use [victory.example.toml](victory.example.toml) as the template for `victory.toml` and run `.\target\release\victory.exe config` to check the paths.
+
+### Record a benchmark
+
+In PowerShell 7, enable frame logging and run the same scene with a fixed camera. Keep the settings and camera view consistent when comparing runs.
+
+```powershell
+$env:VICTORY_FRAME_LOG = '1'
+$env:VICTORY_LOG = 'info'
+$logPath = Join-Path $env:TEMP "loam-$(Get-Date -Format yyyyMMdd-HHmmss).log"
+.\target\release\victory.exe run $titleExe --execute --console series-s 2>&1 |
+    Tee-Object -FilePath $logPath
+```
+
+After the run, find a `frame times:` line when the camera was steady. Copy its timestamp, including the `Z` or UTC offset, and choose a point with at least 60 seconds of log after it.
+
+```powershell
+$start = Read-Host 'Timestamp at the start of the benchmark'
+.\scripts\Measure-FrameTime.ps1 -LogPath $logPath -AnchorTimestamp $start -DurationSeconds 60
+```
+
+[Runtime notes and debug options](UPSTREAM.md)
 
 ## Credits
 
