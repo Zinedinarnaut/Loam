@@ -4,11 +4,15 @@ An attempt to run GTA VI on PC.
 
 Loam is a Windows compatibility layer for Xbox Series software. It runs the game's x86-64 code on the host, supplies the console APIs it calls, and translates its GPU work for Direct3D 12.
 
-[![Loam frame-rate progress](https://zinedinarnaut.github.io/Loam/fps.svg)](https://zinedinarnaut.github.io/Loam/progress.html)
-
 [Progress](https://zinedinarnaut.github.io/Loam/progress.html) · [Changelog](CHANGELOG.md) · [Architecture](docs/architecture.md) · [Asset policy](docs/asset-policy.md)
 
 ## Status
+
+[![Resolver registration count](https://zinedinarnaut.github.io/Loam/registry.svg)](https://zinedinarnaut.github.io/Loam/progress.html#registry) [![GFX10 opcode catalog count](https://zinedinarnaut.github.io/Loam/gfx10.svg)](https://zinedinarnaut.github.io/Loam/progress.html#status-map) [![Measured frame rate](https://zinedinarnaut.github.io/Loam/fps.svg)](https://zinedinarnaut.github.io/Loam/progress.html#benchmark)
+
+[![Loam status maps for runtime milestones, resolver groups, and GFX10 opcode families](https://zinedinarnaut.github.io/Loam/status-map.svg)](https://zinedinarnaut.github.io/Loam/progress.html)
+
+Each library square represents a registered resolver entry. Each GFX10 square represents a named opcode slot in the source catalog. The milestone strip records observed behavior.
 
 | Stage | Result |
 | --- | --- |

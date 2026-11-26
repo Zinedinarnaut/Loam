@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/progress-pages.yml'
       - 'scripts/Build-Progress.ps1'
+      - 'scripts/StatusMap.ps1'
+      - 'crates/victory-shader/src/gfx10/opcodes.rs'
       - 'site/progress.json'
   schedule:
     - cron: '17 18 * * *'

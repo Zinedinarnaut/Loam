@@ -75,7 +75,7 @@
     }
   ],
   "registry": {
-    "revision": "635083e",
+    "revision": "abacb36",
     "entries": [
       {
         "name": "kernel",
@@ -127,7 +127,7 @@
       },
       {
         "name": "net",
-        "count": 31
+        "count": 38
       },
       {
         "name": "xmem",

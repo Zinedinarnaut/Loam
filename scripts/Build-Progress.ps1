@@ -157,6 +157,33 @@ $registryRows = for ($index = 0; $index -lt $groups.Count; $index++) {
     "        <tr><th scope='row'>$(Encode-Html $name)</th><td>$count</td></tr>"
 }
 
+$opcodePath = 'crates/victory-shader/src/gfx10/opcodes.rs'
+$opcodeSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot "../$opcodePath"))
+$tablePattern = '(?ms)^pub\(super\) const (?<name>[A-Z][A-Z0-9]*): &\[\(u16, &str\)\] = &\[\r?\n(?<rows>.*?)^\];'
+$entryPattern = '\A[ \t]*\(0x(?<opcode>[0-9a-fA-F]+),[ \t]*"[a-z0-9_]+"\),[ \t]*\z'
+$shaderTableNames = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+$shaderGroups = @(
+    foreach ($table in [regex]::Matches($opcodeSource, $tablePattern)) {
+        $name = $table.Groups['name'].Value
+        if (-not $shaderTableNames.Add($name)) { throw "Duplicate opcode table $name." }
+        $opcodes = [Collections.Generic.HashSet[uint16]]::new()
+        foreach ($line in ($table.Groups['rows'].Value -split '\r?\n')) {
+            if ([string]::IsNullOrWhiteSpace($line) -or $line.TrimStart().StartsWith('//')) { continue }
+            $entry = [regex]::Match($line, $entryPattern)
+            if (-not $entry.Success) { throw "Unexpected GFX10 entry in $name." }
+            $opcode = [Convert]::ToUInt16($entry.Groups['opcode'].Value, 16)
+            if (-not $opcodes.Add($opcode)) { throw "Duplicate GFX10 opcode in $name." }
+        }
+        [ordered]@{ name = $name; count = $opcodes.Count }
+    }
+)
+if ($shaderGroups.Count -eq 0) { throw 'No GFX10 opcode tables found.' }
+$shaderTotal = ($shaderGroups | ForEach-Object { $_['count'] } | Measure-Object -Sum).Sum
+$data['shaderCatalogue'] = [ordered]@{ source = $opcodePath; total = $shaderTotal; families = $shaderGroups }
+
+. (Join-Path $PSScriptRoot 'StatusMap.ps1')
+$statusMap = New-LoamStatusMap -Groups $groups -ShaderGroups $shaderGroups -Milestones $milestones -Fps $fps -TargetFps $targetFps
+
 $html = @"
 <!doctype html>
 <html lang="en">
@@ -203,6 +230,7 @@ $html = @"
     tbody tr:last-child > * { border-bottom: 0; }
     td { font-variant-numeric: tabular-nums; }
     code { font-size: .95em; }
+    .status-map { display: block; width: 100%; height: auto; }
   </style>
 </head>
 <body>
@@ -217,6 +245,12 @@ $html = @"
       <a href="fps.svg">FPS badge</a>
     </nav>
   </header>
+  <section aria-labelledby="status-map">
+    <h2 id="status-map">Source status map</h2>
+    <p>One square represents a Windows resolver registration or a GFX10 opcode label. The milestone strip records observed behavior.</p>
+    <p><a href="status-map.svg"><img class="status-map" src="status-map.svg" alt="Loam status map with $registryTotal resolver entries and $shaderTotal GFX10 opcode labels by group"></a></p>
+  </section>
+
   <section aria-labelledby="benchmark">
     <h2 id="benchmark">Barred-window benchmark</h2>
     <p><img src="fps.svg" width="150" height="24" alt="$projectName measured $fps FPS"></p>
@@ -269,18 +303,27 @@ $($registryRows -join [Environment]::NewLine)
 </html>
 "@
 
-$badgeName = Encode-Html "Measured $fps FPS"
-$badge = @"
-<svg xmlns="http://www.w3.org/2000/svg" width="150" height="24" viewBox="0 0 150 24" role="img" aria-labelledby="title">
-  <title id="title">$badgeName</title>
-  <rect width="150" height="24" rx="3" fill="#263b33"/>
-  <rect x="77" width="73" height="24" rx="3" fill="#176044"/>
+function New-ProgressBadge([string]$Label, [string]$Value, [int]$LabelWidth, [int]$ValueWidth) {
+    $width = $LabelWidth + $ValueWidth
+    $title = Encode-Html "$Label $Value"
+    $badgeLabel = Encode-Html $Label
+    $badgeValue = Encode-Html $Value
+    return @"
+<svg xmlns="http://www.w3.org/2000/svg" width="$width" height="24" viewBox="0 0 $width 24" role="img" aria-labelledby="title">
+  <title id="title">$title</title>
+  <rect width="$width" height="24" rx="3" fill="#263b33"/>
+  <rect x="$LabelWidth" width="$ValueWidth" height="24" rx="3" fill="#176044"/>
   <g fill="#fff" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11">
-    <text x="39" y="16">Measured</text>
-    <text x="114" y="16">$fps FPS</text>
+    <text x="$([int]($LabelWidth / 2))" y="16">$badgeLabel</text>
+    <text x="$([int]($LabelWidth + $ValueWidth / 2))" y="16">$badgeValue</text>
   </g>
 </svg>
 "@
+}
+
+$badge = New-ProgressBadge 'Measured' "$fps FPS" 77 73
+$registryBadge = New-ProgressBadge 'Resolver' "$registryTotal entries" 76 86
+$shaderBadge = New-ProgressBadge 'GFX10 catalog' "$(Format-Number $shaderTotal '#,0') names" 93 91
 
 $outputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputDirectory)
 if ((Join-Path $outputPath 'progress.json') -eq $dataFile) {
@@ -289,5 +332,8 @@ if ((Join-Path $outputPath 'progress.json') -eq $dataFile) {
 [void][IO.Directory]::CreateDirectory($outputPath)
 [IO.File]::WriteAllText((Join-Path $outputPath 'progress.html'), $html)
 [IO.File]::WriteAllText((Join-Path $outputPath 'index.html'), $html)
-[IO.File]::WriteAllText((Join-Path $outputPath 'progress.json'), $source)
+[IO.File]::WriteAllText((Join-Path $outputPath 'progress.json'), (ConvertTo-Json -InputObject $data -Depth 12) + [Environment]::NewLine)
 [IO.File]::WriteAllText((Join-Path $outputPath 'fps.svg'), $badge)
+[IO.File]::WriteAllText((Join-Path $outputPath 'registry.svg'), $registryBadge)
+[IO.File]::WriteAllText((Join-Path $outputPath 'gfx10.svg'), $shaderBadge)
+[IO.File]::WriteAllText((Join-Path $outputPath 'status-map.svg'), $statusMap)
