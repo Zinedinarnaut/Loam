@@ -3,6 +3,7 @@
 ## 2026-11-27
 
 - Compared changed-only and full buffer uploads on RTX 5060 Ti with Wide hashing. In the same stationary Series S scene, sampled card uploads fell from 107.5 to 46.2 MB per frame. Median frame time moved from 190 to 188 ms across five alternating phases per mode.
+- Captured both Cascading Shadows textures at the same dispatch boundary on the RTX 5060 Ti with the shadow pass enabled and skipped. The scene differed between runs. The visual check is still open.
 
 ## 2026-11-26
 

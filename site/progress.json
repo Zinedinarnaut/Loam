@@ -63,7 +63,7 @@
           "id": "d3d12-pipelines",
           "label": "RTX pipeline checks by shader",
           "status": "Partial",
-          "evidence": "November 26, 2026. On the RTX 5060 Ti, particle visibility and alpha prefilter created D3D12 pipelines and bound them during the opening scene. Cascading Shadows created a Wave32 pipeline and recorded indirect dispatches in two more replays. The Windows memory guard ended both replays before visual output could be verified. A synthetic Defrag test verified shared-memory compare-and-swap across two logical waves on the RTX. The game's Defrag pipeline still requests 64 lanes and fails pipeline creation. It needs the shared-memory scheduler integrated into shader translation.",
+          "evidence": "November 27, 2026. On the RTX 5060 Ti, particle visibility and alpha prefilter created D3D12 pipelines and bound them during the opening scene. Cascading Shadows created a Wave32 pipeline and recorded indirect dispatches. A selective diagnostic captured both shadow textures at the same dispatch boundary with the pass enabled and skipped. The scene differed between those replays, so the visual result remains open. Synthetic Defrag tests verified shared-memory compare-and-swap and compact per-wave spill storage on the RTX. The game's Defrag pipeline still requests 64 lanes and fails pipeline creation. It needs the shared-memory scheduler integrated into shader translation.",
           "doneWhen": "Resolve host refusals and shader translation failures for mission pipelines. Verify the required draws and dispatches during movement.",
           "checks": [
             { "label": "Create pipelines to render the first room", "status": "Verified" },
