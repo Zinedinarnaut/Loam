@@ -1150,6 +1150,26 @@ mod host {
         }
     }
 
+    #[cfg(feature = "diagnostics")]
+    fn overlay_menu_key(pad: &mut PadState, virtual_key: u8) {
+        use windows_sys::Win32::UI::Input::XboxController::XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE;
+
+        let guest = fallback(&[KeyState {
+            virtual_key,
+            ..Default::default()
+        }]);
+        pad.buttons |= guest.buttons;
+        let idle_radius = f32::from(XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) / 32767.0;
+        if pad.left_x.hypot(pad.left_y) < idle_radius {
+            if guest.left_x != 0.0 {
+                pad.left_x = guest.left_x;
+            }
+            if guest.left_y != 0.0 {
+                pad.left_y = guest.left_y;
+            }
+        }
+    }
+
     impl Source for Host {
         fn pad(&mut self, slot: usize) -> Option<PadState> {
             if self.empty_until[slot].is_some_and(|until| Instant::now() < until) {
@@ -1170,10 +1190,13 @@ mod host {
             // to the pad (the title's start screen) saw nothing.
             #[cfg(feature = "diagnostics")]
             if slot == 0 {
-                for vk in self.guest_keys() {
+                for vk in scripted() {
                     if let Some(&(_, button)) = super::FALLBACK_BUTTONS.iter().find(|(key, _)| *key == vk) {
                         pad.buttons |= button;
                     }
+                }
+                if let Some(key) = self.menu_input.poll(Instant::now()) {
+                    overlay_menu_key(&mut pad, key);
                 }
             }
             Some(pad)
@@ -1257,6 +1280,25 @@ mod host {
             GetWindowThreadProcessId(GetForegroundWindow(), &mut process);
             process == GetCurrentProcessId()
         }
+    }
+
+    #[cfg(feature = "diagnostics")]
+    #[test]
+    fn menu_movement_preserves_an_active_physical_stick() {
+        let mut pad = PadState::default();
+        overlay_menu_key(&mut pad, b'W');
+        assert_eq!((pad.left_x, pad.left_y), (0.0, 1.0));
+
+        let mut held = PadState {
+            left_x: 0.5,
+            ..Default::default()
+        };
+        overlay_menu_key(&mut held, b'W');
+        assert_eq!((held.left_x, held.left_y), (0.5, 0.0));
+
+        overlay_menu_key(&mut held, 0x0D);
+        assert_eq!(held.buttons, A);
+        assert_eq!((held.left_x, held.left_y), (0.5, 0.0));
     }
 
     #[test]

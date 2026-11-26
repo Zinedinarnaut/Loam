@@ -1,4 +1,4 @@
-//! Read-only, numbered guest input pulses for the diagnostic offline launcher.
+//! Read-only, numbered guest navigation and movement pulses for diagnostic tests.
 
 use std::fs::OpenOptions;
 use std::io::Read;
@@ -11,7 +11,9 @@ use windows_sys::Win32::Storage::FileSystem::{
 };
 
 const POLL_PERIOD: Duration = Duration::from_millis(50);
-const PULSE: Duration = Duration::from_millis(200);
+const NAVIGATION_PULSE: Duration = Duration::from_millis(200);
+const MOVEMENT_PULSE: Duration = Duration::from_millis(900);
+const MOVEMENT_KEYS: [u8; 4] = *b"WASD";
 const COMMAND_BYTES: u64 = 64;
 
 pub(super) struct MenuInput {
@@ -61,7 +63,12 @@ impl MenuInput {
             return None;
         }
         self.last_sequence = sequence;
-        self.active = Some((now + PULSE, key));
+        let duration = if MOVEMENT_KEYS.contains(&key) {
+            MOVEMENT_PULSE
+        } else {
+            NAVIGATION_PULSE
+        };
+        self.active = Some((now + duration, key));
         tracing::info!(sequence, key, "offline menu input pulse");
         Some(key)
     }
@@ -86,7 +93,12 @@ fn read_command(path: &Path) -> Option<(u64, u8)> {
         return None;
     }
     let (sequence, key) = command.trim().split_once(':')?;
-    Some((sequence.trim().parse().ok()?, navigation_key(key.trim())?))
+    let key = key.trim();
+    let key = match key.as_bytes() {
+        [movement] if MOVEMENT_KEYS.contains(movement) => *movement,
+        _ => navigation_key(key)?,
+    };
+    Some((sequence.trim().parse().ok()?, key))
 }
 
 pub(super) fn navigation_key(key: &str) -> Option<u8> {
@@ -128,11 +140,19 @@ mod tests {
         assert_eq!(input.poll(at(450)), None);
         assert_eq!(input.poll(at(500)), None);
 
-        std::fs::write(&path, "3:W").unwrap();
+        std::fs::write(&path, "3:F").unwrap();
         assert_eq!(input.poll(at(550)), None);
         std::fs::write(&path, format!("3:Esc{}", " ".repeat(64))).unwrap();
         assert_eq!(input.poll(at(600)), None);
         std::fs::write(&path, "3:Esc\r\n").unwrap();
         assert_eq!(input.poll(at(650)), Some(0x1B));
+        assert_eq!(input.poll(at(850)), None);
+
+        std::fs::write(&path, "4:W").unwrap();
+        assert_eq!(input.poll(at(899)), None);
+        assert_eq!(input.poll(at(900)), Some(b'W'));
+        assert_eq!(input.poll(at(1799)), Some(b'W'));
+        assert_eq!(input.poll(at(1800)), None);
+        assert_eq!(input.poll(at(1850)), None);
     }
 }
