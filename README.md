@@ -10,7 +10,7 @@ Loam is a Windows compatibility layer for Xbox Series software. It runs the game
 
 [![System libraries](https://zinedinarnaut.github.io/Loam/registry.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html#registry) [![Named GFX10 ALU opcode slots](https://zinedinarnaut.github.io/Loam/gfx10-alu.svg?v=3)](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) [![Named GFX10 memory and export opcode slots](https://zinedinarnaut.github.io/Loam/gfx10-memory.svg?v=3)](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) [![Opening scene benchmark](https://zinedinarnaut.github.io/Loam/fps.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html#benchmark)
 
-[![Progress map with VOP3 and SMEM mission checks and verified RTX pipeline work](https://zinedinarnaut.github.io/Loam/status-map.svg?v=10)](https://zinedinarnaut.github.io/Loam/progress.html#status-map)
+[![Progress map with VOP3 and SMEM mission checks and four verified RTX shader names](https://zinedinarnaut.github.io/Loam/status-map.svg?v=11)](https://zinedinarnaut.github.io/Loam/progress.html#status-map)
 
 [Shader opcode details](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) · [Progress history](https://zinedinarnaut.github.io/Loam/progress.html#earlier)
 
@@ -18,7 +18,7 @@ Loam is a Windows compatibility layer for Xbox Series software. It runs the game
 
 The opening checkpoint loads, and scripted input moved the player away from the barred window. Windows reached its memory reserve in the follow-up runs. [Playability details](https://zinedinarnaut.github.io/Loam/progress.html#roadmap-details)
 
-**RTX pipeline work.** Runtime `4e137e5` reached the first world frame on the RTX 5060 Ti. Across that run and a short startup probe, diagnostics recorded three distinct compute shader signatures in D3D12 pipeline rejections and one lane-mask translation failure. Each signature matched its local shader archive entry. [Pipeline details](https://zinedinarnaut.github.io/Loam/progress.html#task-d3d12-pipelines)
+**RTX pipeline work.** Runtime `4e137e5` reached the first world frame on the RTX 5060 Ti. The four tiles show the matched shader entry names. The first three had D3D12 compute pipeline rejections, and the fourth had a lane-mask translation failure. [Pipeline details](https://zinedinarnaut.github.io/Loam/progress.html#task-d3d12-pipelines)
 
 **Shader translation.** Synthetic tests cover selected VOP3 and SMEM forms. The tiles track mission-level checks. The observed pipeline failures still need attribution to specific shader forms. [VOP3](https://zinedinarnaut.github.io/Loam/progress.html#task-shader-translation) · [SMEM](https://zinedinarnaut.github.io/Loam/progress.html#task-smem)
 

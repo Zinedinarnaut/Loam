@@ -23,3 +23,4 @@
 - Put the remaining DXIL work inside the VOP3 and SMEM tiles and added a matching row for missing pipeline checks.
 - Scoped the pipeline tiles to the observed RTX opening-room work and distinguished rejected shader signatures from per-frame skips.
 - Rechecked pipeline failures on an RTX 5060 Ti with runtime `4e137e5`. The status generator can wrap longer local labels inside the same tile grid.
+- Listed the four shader entry names tied to the verified RTX failures in the README status grid.
