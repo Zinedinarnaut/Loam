@@ -61,15 +61,15 @@
       "tiles": [
         {
           "id": "d3d12-pipelines",
-          "label": "Opening-room pipeline work",
+          "label": "RTX pipeline work on 4e137e5",
           "status": "Partial",
-          "evidence": "Both RTX upload runs used runtime revision 284b107. The D3D12 pipeline-state rejection warnings at startup referenced the same six distinct translated compute shader signatures and error 0x80070057. A separate compute shader failed to translate a lane-mask exchange with inactive lanes. In the 5.15 FPS stationary sample, the diagnostics averaged about 266 suppressed ray-tracing builder dispatches, four host-rejection skips, and one translation-failure skip per frame. The current shader changes still need an integrated RTX run.",
+          "evidence": "On the RTX 5060 Ti, runtime 4e137e5 reached its first 500-draw world frame and recorded two compute pipeline-state rejections before the Windows memory guard stopped the run. A short startup probe on the same build reused scheduling hints and created fresh host pipelines. Across both runs there were three distinct compute shader signatures in D3D12 rejection warnings with 0x80070057, plus one separate lane-mask translation failure. All four matched exact local shader archive entries. Pipeline-object debug names remain unverified.",
           "doneWhen": "Resolve host refusals and shader translation failures for mission pipelines. Verify the required draws and dispatches during movement.",
           "checks": [
             { "label": "Create pipelines to render the first room", "status": "Verified" },
             { "label": "Validate the gated ray-tracing structure builder pipelines and their outputs", "status": "Partial", "mapLabel": "Validate gated RT builder stages" },
-            { "label": "Resolve D3D12 compute pipeline-state creation failures with 0x80070057", "status": "Partial", "mapLabel": "Resolve compute PSO rejections" },
-            { "label": "Translate lane-mask exchange during divergent execution", "status": "Pending", "mapLabel": "Fix divergent lane-mask exchange" },
+            { "label": "Resolve the three observed D3D12 compute pipeline-state rejections with 0x80070057", "status": "Partial", "mapLabel": "Compute PSO rejections (3)" },
+            { "label": "Translate lane-mask exchange during divergent execution", "status": "Pending", "mapLabel": "Lane-mask translation (1)" },
             { "label": "Verify required direct and indirect draws during movement", "status": "Unverified", "mapLabel": "Verify draws during movement" }
           ]
         },

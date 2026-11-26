@@ -49,21 +49,56 @@ function New-LoamStatusMap {
         $content.Add('    </a>')
     }
 
+    function Estimate-WorkLabelWidth([string]$Label) {
+        $wide = [regex]::Matches($Label, '[MWmw@%]|[^\x00-\x7f]').Count
+        return 6.5 * $Label.Length + 4 * $wide
+    }
+
     function Add-PipelineWork($Work, [int]$Top) {
         $name = ConvertTo-MapLabel $Work.Label
         $anchor = ConvertTo-MapLabel $Work.Anchor
+        $columns = [Math]::Min(4, $Work.Lines.Count)
+        $rowHeight = 32
         $content.Add("  <text x='4' y='$($Top + 14)' class='section-label'>$name</text>")
         $content.Add("  <a href='progress.html#$anchor' class='pipeline-work'>")
         for ($index = 0; $index -lt $Work.Lines.Count; $index++) {
-            $left = 4 + [int][Math]::Floor(992 * $index / $Work.Lines.Count)
-            $right = 4 + [int][Math]::Floor(992 * ($index + 1) / $Work.Lines.Count)
-            $label = ConvertTo-MapLabel $Work.Lines[$index]
-            $content.Add("    <rect x='$left' y='$($Top + 20)' width='$($right - $left)' height='32' class='group'/>")
-            $content.Add("    <rect x='$($left + 6)' y='$($Top + 30)' width='11' height='11' fill='#6e7681'/>")
-            $content.Add("    <text x='$($left + 23)' y='$($Top + 40)' class='group-label'>$label</text>")
-            $content.Add("    <rect x='$left' y='$($Top + 20)' width='$($right - $left)' height='32' class='group-border'/>")
+            $column = $index % $columns
+            $row = [int][Math]::Floor($index / $columns)
+            $left = 4 + [int][Math]::Floor(992 * $column / $columns)
+            $right = 4 + [int][Math]::Floor(992 * ($column + 1) / $columns)
+            $tileY = $Top + 20 + $row * $rowHeight
+            $tileWidth = $right - $left
+            $textWidth = $tileWidth - 29
+            $caption = $Work.Lines[$index]
+            $label = ConvertTo-MapLabel $caption
+            $content.Add("    <rect x='$left' y='$tileY' width='$tileWidth' height='$rowHeight' class='group'/>")
+            $content.Add("    <rect x='$($left + 6)' y='$($tileY + 10)' width='11' height='11' fill='#6e7681'/>")
+            if ((Estimate-WorkLabelWidth $caption) -le $textWidth) {
+                $content.Add("    <text x='$($left + 23)' y='$($tileY + 20)' class='group-label'>$label</text>")
+            } else {
+                # Prefer a word or identifier boundary near the middle.
+                $middle = [int][Math]::Ceiling($caption.Length / 2)
+                $boundary = [regex]::Matches($caption, '(?<=[ _./-])(?=.)') |
+                    Where-Object { [Math]::Abs($_.Index - $middle) -le 8 } |
+                    Sort-Object { [Math]::Abs($_.Index - $middle) } |
+                    Select-Object -First 1
+                $split = if ($null -eq $boundary) { $middle } else { $boundary.Index }
+                if ([char]::IsLowSurrogate($caption[$split])) { $split-- }
+                $parts = @($caption.Substring(0, $split).TrimEnd(), $caption.Substring($split).TrimStart())
+                $content.Add("    <g><title>$label</title>")
+                for ($line = 0; $line -lt $parts.Count; $line++) {
+                    $squeeze = if ((Estimate-WorkLabelWidth $parts[$line]) -gt $textWidth) {
+                        " textLength='$textWidth' lengthAdjust='spacingAndGlyphs'"
+                    } else { '' }
+                    $part = ConvertTo-MapLabel $parts[$line]
+                    $content.Add("      <text x='$($left + 23)' y='$($tileY + 13 + 13 * $line)' class='group-label'$squeeze>$part</text>")
+                }
+                $content.Add('    </g>')
+            }
+            $content.Add("    <rect x='$left' y='$tileY' width='$tileWidth' height='$rowHeight' class='group-border'/>")
         }
         $content.Add('  </a>')
+        return $Top + 20 + $rowHeight * [int][Math]::Ceiling($Work.Lines.Count / $columns)
     }
 
     $libraries = @(foreach ($entry in $Groups) {
@@ -233,8 +268,7 @@ function New-LoamStatusMap {
     $legendY = 728
     $description = 'Library tiles show resolver registrations. Shader tiles show decoder recognition by encoding family, including the VOP3 forms of VOPC, VOP2, and VOP1.'
     if ($WorkItems.Contains('pipelines')) {
-        Add-PipelineWork $WorkItems['pipelines'] 721
-        $legendY = 785
+        $legendY = (Add-PipelineWork $WorkItems['pipelines'] 721) + 12
     }
     if ($WorkItems.Count) {
         $description += ' Selected tiles show remaining translation and pipeline work.'
