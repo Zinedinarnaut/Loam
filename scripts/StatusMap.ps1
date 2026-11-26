@@ -40,7 +40,7 @@ function New-LoamStatusMap {
         $anchor = ConvertTo-MapLabel $Work.Anchor
         $content.Add("    <a href='progress.html#$anchor' class='shader-work'>")
         $content.Add("      <rect x='$($X + 3)' y='$top' width='$($W - 6)' height='$height' class='group' fill-opacity='.92'/>")
-        $content.Add("      <text x='$left' y='$($top + 13)' class='group-label'>DXIL remaining</text>")
+        $content.Add("      <text x='$left' y='$($top + 13)' class='group-label'>Mission DXIL checks</text>")
         for ($index = 0; $index -lt $Work.Lines.Count; $index++) {
             $label = ConvertTo-MapLabel $Work.Lines[$index]
             $baseline = $top + 13 + ($index + 1) * $step
