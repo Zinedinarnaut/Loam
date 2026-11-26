@@ -11,3 +11,5 @@
 - Made Loam public and added the generated progress page, benchmark history, resolver inventory, and README badge.
 - Added generated tile maps and count badges to README Status. The registry audit includes ordinal bindings and corrects the Windows total to 149 entries. The GFX10 panel counts names in the public opcode tables.
 - Reworked README Status to match AnyPS5's badge row and treemaps. The shader panels show which opcode values have names in Loam's GFX10 tables.
+- Added short WASD pulses for offline diagnostics that respect input from a physical stick. Verified movement away from the barred window in the opening prison room.
+- Recorded 3.28 FPS, 303 ms median, and 328 ms p95 across 170 intervals in a stationary 60-second window with the lower-memory preset. Four follow-up runs reached the Windows commit reserve. Windows logged no new NVIDIA driver or display-reset events during those runs.

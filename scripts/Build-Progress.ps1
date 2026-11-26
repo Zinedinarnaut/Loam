@@ -269,7 +269,7 @@ $html = @"
 <main>
   <header>
     <h1>$projectName progress</h1>
-    <p>Opening prison sequence on the $hardware, tested at revision <code>$revision</code>.</p>
+    <p>Opening prison sequence on the $hardware.</p>
     <nav aria-label="Project links">
       <a href="$repositoryUrl">Source repository</a>
       <a href="$changelogUrl">Changelog</a>
@@ -284,9 +284,9 @@ $html = @"
   </section>
 
   <section aria-labelledby="benchmark">
-    <h2 id="benchmark">Barred-window benchmark</h2>
+    <h2 id="benchmark">Barred-window reference benchmark</h2>
     <p><img src="fps.svg" alt="$projectName measured $fps FPS"></p>
-    <p>$fps FPS from $intervals logged frame intervals within a ${seconds}-second selection. FPS is calculated from the mean measured frame interval.</p>
+    <p>$fps FPS from $intervals logged frame intervals within a ${seconds}-second selection at revision <code>$revision</code>. FPS is calculated from the mean measured frame interval.</p>
     <div class="table" role="region" aria-label="Barred-window results" tabindex="0">
       <table>
         <thead><tr><th scope="col">Mean frame time</th><th scope="col">Median</th><th scope="col">95th percentile</th><th scope="col">Target</th></tr></thead>
@@ -301,15 +301,15 @@ $html = @"
         <thead><tr><th scope="col">Milestone</th><th scope="col">Status</th><th scope="col">Observed behavior</th></tr></thead>
         <tbody>
 $($milestoneRows -join [Environment]::NewLine)
-          <tr><th scope="row">Guarded run</th><td>Verified</td><td>Reached the ${minutes}-minute limit. Recorded $errorCount new NVIDIA driver errors and about $headroom GiB of Windows commit headroom near the end.</td></tr>
+          <tr><th scope="row">$fps FPS benchmark run</th><td>Verified</td><td>Reached the ${minutes}-minute limit. Recorded $errorCount new NVIDIA driver errors and about $headroom GiB of Windows commit headroom near the end.</td></tr>
         </tbody>
       </table>
     </div>
   </section>
   <section aria-labelledby="earlier">
-    <h2 id="earlier">Earlier runs</h2>
+    <h2 id="earlier">Other runs</h2>
     <p>Camera views and runtime settings varied across runs, so these measurements cannot isolate the effect of one change.</p>
-    <div class="table" role="region" aria-label="Earlier frame timings" tabindex="0">
+    <div class="table" role="region" aria-label="Other frame timings" tabindex="0">
       <table>
         <thead><tr><th scope="col">Run</th><th scope="col">FPS</th><th scope="col">Median (ms)</th><th scope="col">P95 (ms)</th><th scope="col">Intervals</th><th scope="col">Observation</th></tr></thead>
         <tbody>

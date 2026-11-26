@@ -16,7 +16,7 @@ Loam is a Windows compatibility layer for Xbox Series software. It runs the game
 
 <sub>* System libraries count entries in the [Windows resolver registry](crates/victory-hle/src/modules/mod.rs). Green shader cells have names in the [GFX10 opcode tables](crates/victory-shader/src/gfx10/opcodes.rs). Gray cells include reserved values.</sub>
 
-The opening checkpoint loads. Player movement still needs verification.
+The opening checkpoint loads, and scripted keyboard input moved the player away from the barred window and into the room. Sustained gameplay still needs verification. Windows reached its memory reserve in the follow-up runs.
 
 Loam [recompiles GFX10 shaders](crates/victory-shader/src/lib.rs) for Direct3D 12.
 
@@ -25,10 +25,11 @@ Loam [recompiles GFX10 shaders](crates/victory-shader/src/lib.rs) for Direct3D 1
 | Opening prison scene | FPS | Median frame time | P95 frame time | Intervals |
 | --- | ---: | ---: | ---: | ---: |
 | Barred-window view, reduced shader buffer windows | **4.97** | 195 ms | 226 ms | 278 |
+| Barred-window view, lower-memory preset | 3.28 | 303 ms | 328 ms | 170 |
 | Doorway view, serial hash | 3.24 | 304 ms | 330 ms | 269 |
 | Bunks view, wide hash with limited texture catch-up | 3.15 | 328 ms | 360 ms | 178 |
 
-The barred-window result used an RTX 5060 Ti and the Series S profile at revision `780a22f`. Its 60-second sample averaged 201.34 ms per frame. Camera views and runtime settings varied across runs. The bunks run ended at the Windows memory guard. [Full results](https://zinedinarnaut.github.io/Loam/progress.html#benchmark) · [Benchmark data](site/progress.json)
+Both barred-window samples used an RTX 5060 Ti and the Series S profile. The fastest recorded run averaged 201.34 ms per frame at revision `780a22f`. The lower-memory run averaged 304.65 ms per frame over a 60-second stationary window, then reached the Windows memory reserve after a movement input. Camera views and runtime settings varied across runs. [Full results](https://zinedinarnaut.github.io/Loam/progress.html#benchmark) · [Benchmark data](site/progress.json)
 
 ## Build and run
 

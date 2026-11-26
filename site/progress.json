@@ -47,8 +47,13 @@
     },
     {
       "label": "Gameplay movement",
+      "status": "Verified",
+      "detail": "Scripted keyboard input moved the player away from the barred window and into the opening prison room."
+    },
+    {
+      "label": "Sustained gameplay",
       "status": "Unverified",
-      "detail": "Sustained player movement and control through the opening sequence have yet to be verified."
+      "detail": "Four follow-up runs reached the Windows memory reserve. Windows logged no new NVIDIA driver or display-reset events during those runs."
     },
     {
       "label": "Gameplay performance target",
@@ -57,6 +62,16 @@
     }
   ],
   "earlierRuns": [
+    {
+      "label": "Lower-memory preset · barred-window view",
+      "fps": 3.28,
+      "meanMs": 304.65,
+      "medianMs": 303,
+      "p95Ms": 328,
+      "intervals": 170,
+      "selectionSeconds": 60,
+      "outcome": "Measured with a stationary camera. The Windows memory guard stopped the run after a movement input."
+    },
     {
       "label": "Serial hash · doorway view",
       "fps": 3.24,
