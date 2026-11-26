@@ -7,6 +7,7 @@ on:
       - '.github/workflows/progress-pages.yml'
       - 'scripts/Build-Progress.ps1'
       - 'scripts/StatusMap.ps1'
+      - 'crates/victory-shader/src/gfx10/mod.rs'
       - 'crates/victory-shader/src/gfx10/opcodes.rs'
       - 'site/progress.json'
   schedule:

@@ -10,3 +10,4 @@
 - Posted the source snapshot with its license and upstream credits. BCPack tables stay outside Git and are supplied at build time when needed.
 - Made Loam public and added the generated progress page, benchmark history, resolver inventory, and README badge.
 - Added generated tile maps and count badges to README Status. The registry audit includes ordinal bindings and corrects the Windows total to 149 entries. The GFX10 panel counts names in the public opcode tables.
+- Reworked README Status to match AnyPS5's badge row and treemaps. The shader panels show which opcode values have names in Loam's GFX10 tables.

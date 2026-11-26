@@ -158,6 +158,17 @@ $registryRows = for ($index = 0; $index -lt $groups.Count; $index++) {
 }
 
 $opcodePath = 'crates/victory-shader/src/gfx10/opcodes.rs'
+$decoderPath = 'crates/victory-shader/src/gfx10/mod.rs'
+# Opcode values accepted by the decoder for each table. VOP3 aliases use
+# other tables, and EXP uses a fixed name outside the source catalogue.
+$opcodeValues = @{
+    SOP2 = 0x00..0x5f; SOPK = 0x00..0x1c; SOP1 = 0x00..0xff
+    SOPC = 0x00..0x7f; SOPP = 0x00..0x7f; SMEM = 0x00..0xff
+    VOP2 = 0x00..0x3d; VOP1 = 0x00..0xff; VOPC = 0x00..0xff
+    VOP3 = (0x140..0x17f) + (0x200..0x3ff); VOP3P = 0x00..0x7f; VINTRP = 0x00..0x03
+    DS = 0x00..0xff; MUBUF = 0x00..0xff; MTBUF = 0x00..0x0f; MIMG = 0x00..0xff
+    FLAT = 0x00..0x7f; GLOBAL = 0x00..0x7f; SCRATCH = 0x00..0x7f
+}
 $opcodeSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot "../$opcodePath"))
 $tablePattern = '(?ms)^pub\(super\) const (?<name>[A-Z][A-Z0-9]*): &\[\(u16, &str\)\] = &\[\r?\n(?<rows>.*?)^\];'
 $entryPattern = '\A[ \t]*\(0x(?<opcode>[0-9a-fA-F]+),[ \t]*"[a-z0-9_]+"\),[ \t]*\z'
@@ -166,23 +177,44 @@ $shaderGroups = @(
     foreach ($table in [regex]::Matches($opcodeSource, $tablePattern)) {
         $name = $table.Groups['name'].Value
         if (-not $shaderTableNames.Add($name)) { throw "Duplicate opcode table $name." }
-        $opcodes = [Collections.Generic.HashSet[uint16]]::new()
+        $values = $opcodeValues[$name]
+        if ($null -eq $values) { throw "No decoder opcode range for $name." }
+        $opcodes = [Collections.Generic.HashSet[int]]::new()
         foreach ($line in ($table.Groups['rows'].Value -split '\r?\n')) {
             if ([string]::IsNullOrWhiteSpace($line) -or $line.TrimStart().StartsWith('//')) { continue }
             $entry = [regex]::Match($line, $entryPattern)
             if (-not $entry.Success) { throw "Unexpected GFX10 entry in $name." }
-            $opcode = [Convert]::ToUInt16($entry.Groups['opcode'].Value, 16)
-            if (-not $opcodes.Add($opcode)) { throw "Duplicate GFX10 opcode in $name." }
+            $opcode = [Convert]::ToInt32($entry.Groups['opcode'].Value, 16)
+            $index = [Array]::IndexOf($values, $opcode)
+            if ($index -lt 0) { throw "Opcode $opcode is outside the decoder range for $name." }
+            if (-not $opcodes.Add($index)) { throw "Duplicate GFX10 opcode in $name." }
         }
-        [ordered]@{ name = $name; count = $opcodes.Count }
+        $panel = if ($name -match '^(SOP|VOP|VINTRP)') { 'alu' } else { 'memory' }
+        [ordered]@{ name = $name; count = $opcodes.Count; slotCount = $values.Count; panel = $panel; codes = @($opcodes) }
     }
 )
-if ($shaderGroups.Count -eq 0) { throw 'No GFX10 opcode tables found.' }
+if ($shaderGroups.Count -ne $opcodeValues.Count) { throw 'GFX10 opcode tables and decoder ranges do not match.' }
 $shaderTotal = ($shaderGroups | ForEach-Object { $_['count'] } | Measure-Object -Sum).Sum
-$data['shaderCatalogue'] = [ordered]@{ source = $opcodePath; total = $shaderTotal; families = $shaderGroups }
+$shaderSlots = ($shaderGroups | ForEach-Object { $_['slotCount'] } | Measure-Object -Sum).Sum
+$shaderPanels = @{}
+foreach ($panel in @('alu', 'memory')) {
+    $families = @($shaderGroups | Where-Object { $_['panel'] -eq $panel })
+    $named = ($families | ForEach-Object { $_['count'] } | Measure-Object -Sum).Sum
+    $slots = ($families | ForEach-Object { $_['slotCount'] } | Measure-Object -Sum).Sum
+    $shaderPanels[$panel] = "$named/$slots"
+}
+$data['shaderCatalogue'] = [ordered]@{
+    source = $opcodePath
+    decoder = $decoderPath
+    total = $shaderTotal
+    slotCount = $shaderSlots
+    families = @($shaderGroups | ForEach-Object {
+        [ordered]@{ name = $_['name']; count = $_['count']; slotCount = $_['slotCount']; panel = $_['panel'] }
+    })
+}
 
 . (Join-Path $PSScriptRoot 'StatusMap.ps1')
-$statusMap = New-LoamStatusMap -Groups $groups -ShaderGroups $shaderGroups -Milestones $milestones -Fps $fps -TargetFps $targetFps
+$statusMap = New-LoamStatusMap -Groups $groups -ShaderGroups $shaderGroups
 
 $html = @"
 <!doctype html>
@@ -247,13 +279,13 @@ $html = @"
   </header>
   <section aria-labelledby="status-map">
     <h2 id="status-map">Source status map</h2>
-    <p>One square represents a Windows resolver registration or a GFX10 opcode label. The milestone strip records observed behavior.</p>
-    <p><a href="status-map.svg"><img class="status-map" src="status-map.svg" alt="Loam status map with $registryTotal resolver entries and $shaderTotal GFX10 opcode labels by group"></a></p>
+    <p><a href="status-map.svg"><img class="status-map" src="status-map.svg" alt="Loam status map with $registryTotal resolver entries and $shaderTotal named GFX10 opcode slots out of $shaderSlots"></a></p>
+    <p>Shader cells show named and unnamed opcode values. Unnamed values include reserved encodings.</p>
   </section>
 
   <section aria-labelledby="benchmark">
     <h2 id="benchmark">Barred-window benchmark</h2>
-    <p><img src="fps.svg" width="150" height="24" alt="$projectName measured $fps FPS"></p>
+    <p><img src="fps.svg" alt="$projectName measured $fps FPS"></p>
     <p>$fps FPS from $intervals logged frame intervals within a ${seconds}-second selection. FPS is calculated from the mean measured frame interval.</p>
     <div class="table" role="region" aria-label="Barred-window results" tabindex="0">
       <table>
@@ -303,27 +335,29 @@ $($registryRows -join [Environment]::NewLine)
 </html>
 "@
 
-function New-ProgressBadge([string]$Label, [string]$Value, [int]$LabelWidth, [int]$ValueWidth) {
+function New-ProgressBadge([string]$Label, [string]$Value, [int]$LabelWidth, [int]$ValueWidth, [string]$Color) {
     $width = $LabelWidth + $ValueWidth
     $title = Encode-Html "$Label $Value"
     $badgeLabel = Encode-Html $Label
     $badgeValue = Encode-Html $Value
     return @"
-<svg xmlns="http://www.w3.org/2000/svg" width="$width" height="24" viewBox="0 0 $width 24" role="img" aria-labelledby="title">
+<svg xmlns="http://www.w3.org/2000/svg" width="$width" height="20" viewBox="0 0 $width 20" role="img" aria-labelledby="title">
   <title id="title">$title</title>
-  <rect width="$width" height="24" rx="3" fill="#263b33"/>
-  <rect x="$LabelWidth" width="$ValueWidth" height="24" rx="3" fill="#176044"/>
-  <g fill="#fff" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11">
-    <text x="$([int]($LabelWidth / 2))" y="16">$badgeLabel</text>
-    <text x="$([int]($LabelWidth + $ValueWidth / 2))" y="16">$badgeValue</text>
+  <rect width="$LabelWidth" height="20" fill="#555"/>
+  <rect x="$LabelWidth" width="$ValueWidth" height="20" fill="$Color"/>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana, DejaVu Sans, sans-serif" font-size="11" font-weight="600">
+    <text x="$([int]($LabelWidth / 2))" y="14">$badgeLabel</text>
+    <text x="$([int]($LabelWidth + $ValueWidth / 2))" y="14">$badgeValue</text>
   </g>
 </svg>
 "@
 }
 
-$badge = New-ProgressBadge 'Measured' "$fps FPS" 77 73
-$registryBadge = New-ProgressBadge 'Resolver' "$registryTotal entries" 76 86
-$shaderBadge = New-ProgressBadge 'GFX10 catalog' "$(Format-Number $shaderTotal '#,0') names" 93 91
+$badge = New-ProgressBadge 'opening scene benchmark' "$fps FPS" 165 74 '#2f81f7'
+$registryBadge = New-ProgressBadge 'libraries*' "$registryTotal entries" 75 75 '#dfb317'
+$shaderBadge = New-ProgressBadge 'GFX10 opcode names' "$shaderTotal/$shaderSlots" 131 76 '#4c1'
+$aluBadge = New-ProgressBadge 'GFX10 ALU slots' $shaderPanels['alu'] 112 70 '#4c1'
+$memoryBadge = New-ProgressBadge 'GFX10 memory slots' $shaderPanels['memory'] 137 70 '#4c1'
 
 $outputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputDirectory)
 if ((Join-Path $outputPath 'progress.json') -eq $dataFile) {
@@ -336,4 +370,6 @@ if ((Join-Path $outputPath 'progress.json') -eq $dataFile) {
 [IO.File]::WriteAllText((Join-Path $outputPath 'fps.svg'), $badge)
 [IO.File]::WriteAllText((Join-Path $outputPath 'registry.svg'), $registryBadge)
 [IO.File]::WriteAllText((Join-Path $outputPath 'gfx10.svg'), $shaderBadge)
+[IO.File]::WriteAllText((Join-Path $outputPath 'gfx10-alu.svg'), $aluBadge)
+[IO.File]::WriteAllText((Join-Path $outputPath 'gfx10-memory.svg'), $memoryBadge)
 [IO.File]::WriteAllText((Join-Path $outputPath 'status-map.svg'), $statusMap)

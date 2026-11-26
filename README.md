@@ -8,23 +8,13 @@ Loam is a Windows compatibility layer for Xbox Series software. It runs the game
 
 ## Status
 
-[![Resolver registration count](https://zinedinarnaut.github.io/Loam/registry.svg)](https://zinedinarnaut.github.io/Loam/progress.html#registry) [![GFX10 opcode catalog count](https://zinedinarnaut.github.io/Loam/gfx10.svg)](https://zinedinarnaut.github.io/Loam/progress.html#status-map) [![Measured frame rate](https://zinedinarnaut.github.io/Loam/fps.svg)](https://zinedinarnaut.github.io/Loam/progress.html#benchmark)
+[![System libraries](https://zinedinarnaut.github.io/Loam/registry.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html#registry) [![Named GFX10 ALU opcode slots](https://zinedinarnaut.github.io/Loam/gfx10-alu.svg)](https://zinedinarnaut.github.io/Loam/progress.html#status-map) [![Named GFX10 memory opcode slots](https://zinedinarnaut.github.io/Loam/gfx10-memory.svg)](https://zinedinarnaut.github.io/Loam/progress.html#status-map) [![Opening scene benchmark](https://zinedinarnaut.github.io/Loam/fps.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html#benchmark)
 
-[![Loam status maps for runtime milestones, resolver groups, and GFX10 opcode families](https://zinedinarnaut.github.io/Loam/status-map.svg)](https://zinedinarnaut.github.io/Loam/progress.html)
+[![Progress map](https://zinedinarnaut.github.io/Loam/status-map.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html)
 
-Each library square represents a registered resolver entry. Each GFX10 square represents a named opcode slot in the source catalog. The milestone strip records observed behavior.
+[Progress report](https://zinedinarnaut.github.io/Loam/progress.html)
 
-| Stage | Result |
-| --- | --- |
-| Boot and menus | The title starts. Menu input works in the offline test setup. |
-| Checkpoint | A saved prison checkpoint loads. |
-| Opening scene | The prison interior and exterior render with lighting and texture glitches. |
-| Gameplay controls | Movement in the first mission still needs verification. |
-| Performance | 4.97 FPS in the prison doorway on an RTX 5060 Ti. |
-
-That run used the Series S profile at 1080p. In a 60-second window, 278 frame intervals gave a 195 ms median and 226 ms p95. The run reached its 12-minute limit with zero new NVIDIA driver errors.
-
-The current goal is sustained 33 FPS in controllable gameplay. Earlier tests reached the Windows memory reserve. The [progress page](https://zinedinarnaut.github.io/Loam/progress.html) records each run with its scene, settings, and outcome.
+<sub>* System libraries count registered resolver entries. Gray shader cells represent unnamed opcode values, including reserved values.</sub>
 
 ## Build and run
 
