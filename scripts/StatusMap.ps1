@@ -187,12 +187,12 @@ function New-LoamStatusMap {
     Add-LibrarySection @($libraries | Where-Object Count -LT 5) 'Small system libraries' 4 280 992 106
 
     Add-ShaderSection @($opcodes | Where-Object Panel -EQ 'alu') 'GFX10 ALU opcodes' 4 426 490 279
-    Add-ShaderSection @($opcodes | Where-Object Panel -EQ 'memory') 'GFX10 memory opcodes' 509 426 487 279
+    Add-ShaderSection @($opcodes | Where-Object Panel -EQ 'memory') 'GFX10 memory and export opcodes' 509 426 487 279
 
     return @"
 <svg xmlns="http://www.w3.org/2000/svg" width="1000" height="748" viewBox="0 0 1000 748" role="img" aria-labelledby="title description">
   <title id="title">Loam system libraries and GFX10 opcodes</title>
-  <desc id="description">Library tiles show resolver registrations. Shader tiles show named and unnamed opcode slots grouped by encoding family.</desc>
+  <desc id="description">Library tiles show resolver registrations. Shader tiles show decoder recognition by encoding family, including the VOP3 forms of VOPC, VOP2, and VOP1.</desc>
   <style>
     text { font-family: Arial, sans-serif; fill: white; stroke: #0d1117; stroke-width: 3; stroke-linejoin: round; paint-order: stroke; }
     .section-label { font-size: 16px; }

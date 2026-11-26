@@ -1,7 +1,7 @@
 #Requires -Version 7.0
 <#
 .SYNOPSIS
-Builds the public Loam progress report from a reviewed JSON snapshot.
+Builds the public Loam progress report from a reviewed JSON snapshot and the GFX10 decoder.
 .EXAMPLE
 pwsh -NoProfile -File scripts/Build-Progress.ps1 -OutputDirectory _site
 #>
@@ -159,41 +159,46 @@ $registryRows = for ($index = 0; $index -lt $groups.Count; $index++) {
 
 $opcodePath = 'crates/victory-shader/src/gfx10/opcodes.rs'
 $decoderPath = 'crates/victory-shader/src/gfx10/mod.rs'
-# Opcode values accepted by the decoder for each table. VOP3 aliases use
-# other tables, and EXP uses a fixed name outside the source catalogue.
-$opcodeValues = @{
-    SOP2 = 0x00..0x5f; SOPK = 0x00..0x1c; SOP1 = 0x00..0xff
-    SOPC = 0x00..0x7f; SOPP = 0x00..0x7f; SMEM = 0x00..0xff
-    VOP2 = 0x00..0x3d; VOP1 = 0x00..0xff; VOPC = 0x00..0xff
-    VOP3 = (0x140..0x17f) + (0x200..0x3ff); VOP3P = 0x00..0x7f; VINTRP = 0x00..0x03
-    DS = 0x00..0xff; MUBUF = 0x00..0xff; MTBUF = 0x00..0x0f; MIMG = 0x00..0xff
-    FLAT = 0x00..0x7f; GLOBAL = 0x00..0x7f; SCRATCH = 0x00..0x7f
-}
-$opcodeSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot "../$opcodePath"))
-$tablePattern = '(?ms)^pub\(super\) const (?<name>[A-Z][A-Z0-9]*): &\[\(u16, &str\)\] = &\[\r?\n(?<rows>.*?)^\];'
-$entryPattern = '\A[ \t]*\(0x(?<opcode>[0-9a-fA-F]+),[ \t]*"[a-z0-9_]+"\),[ \t]*\z'
-$shaderTableNames = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
-$shaderGroups = @(
-    foreach ($table in [regex]::Matches($opcodeSource, $tablePattern)) {
-        $name = $table.Groups['name'].Value
-        if (-not $shaderTableNames.Add($name)) { throw "Duplicate opcode table $name." }
-        $values = $opcodeValues[$name]
-        if ($null -eq $values) { throw "No decoder opcode range for $name." }
-        $opcodes = [Collections.Generic.HashSet[int]]::new()
-        foreach ($line in ($table.Groups['rows'].Value -split '\r?\n')) {
-            if ([string]::IsNullOrWhiteSpace($line) -or $line.TrimStart().StartsWith('//')) { continue }
-            $entry = [regex]::Match($line, $entryPattern)
-            if (-not $entry.Success) { throw "Unexpected GFX10 entry in $name." }
-            $opcode = [Convert]::ToInt32($entry.Groups['opcode'].Value, 16)
-            $index = [Array]::IndexOf($values, $opcode)
-            if ($index -lt 0) { throw "Opcode $opcode is outside the decoder range for $name." }
-            if (-not $opcodes.Add($index)) { throw "Duplicate GFX10 opcode in $name." }
-        }
-        $panel = if ($name -match '^(SOP|VOP|VINTRP)') { 'alu' } else { 'memory' }
-        [ordered]@{ name = $name; count = $opcodes.Count; slotCount = $values.Count; panel = $panel; codes = @($opcodes) }
+$probePath = 'crates/victory-shader/examples/gfx10-catalogue.rs'
+Push-Location (Join-Path $PSScriptRoot '..')
+try {
+    $catalogue = @(cargo run --quiet --locked --package victory-shader --example gfx10-catalogue)
+    if ($LASTEXITCODE -ne 0 -or $catalogue.Count -eq 0) {
+        throw 'The GFX10 decoder catalogue probe failed.'
     }
-)
-if ($shaderGroups.Count -ne $opcodeValues.Count) { throw 'GFX10 opcode tables and decoder ranges do not match.' }
+} finally {
+    Pop-Location
+}
+$byFamily = [ordered]@{}
+foreach ($line in $catalogue) {
+    if ($line -cnotmatch '\A(alu|memory)\t([A-Z0-9]+(?: in VOP3)?)\t(0x[0-9a-f]{3})\t([a-z0-9_]+|-)\z') {
+        throw "Unexpected GFX10 probe output: $line"
+    }
+    $panel, $family, $opcode, $name = $Matches[1], $Matches[2], $Matches[3], $Matches[4]
+    if (-not $byFamily.Contains($family)) {
+        $byFamily[$family] = [ordered]@{
+            name = $family
+            count = 0
+            slotCount = 0
+            panel = $panel
+            codes = [Collections.Generic.List[int]]::new()
+            opcodes = [Collections.Generic.List[object]]::new()
+            lastOpcode = ''
+        }
+    }
+    $group = $byFamily[$family]
+    if ($group['panel'] -cne $panel -or [string]::CompareOrdinal($opcode, $group['lastOpcode']) -le 0) {
+        throw "Unexpected GFX10 opcode order or panel for $family at $opcode."
+    }
+    if ($name -cne '-') {
+        $group['codes'].Add($group['slotCount'])
+        $group['opcodes'].Add([ordered]@{ opcode = $opcode; name = $name })
+        $group['count']++
+    }
+    $group['lastOpcode'] = $opcode
+    $group['slotCount']++
+}
+$shaderGroups = @($byFamily.Values)
 $shaderTotal = ($shaderGroups | ForEach-Object { $_['count'] } | Measure-Object -Sum).Sum
 $shaderSlots = ($shaderGroups | ForEach-Object { $_['slotCount'] } | Measure-Object -Sum).Sum
 $shaderPanels = @{}
@@ -206,11 +211,30 @@ foreach ($panel in @('alu', 'memory')) {
 $data['shaderCatalogue'] = [ordered]@{
     source = $opcodePath
     decoder = $decoderPath
+    probe = $probePath
     total = $shaderTotal
     slotCount = $shaderSlots
     families = @($shaderGroups | ForEach-Object {
-        [ordered]@{ name = $_['name']; count = $_['count']; slotCount = $_['slotCount']; panel = $_['panel'] }
+        [ordered]@{
+            name = $_['name']; count = $_['count']; slotCount = $_['slotCount']; panel = $_['panel']
+            opcodes = $_['opcodes'].ToArray()
+        }
     })
+}
+
+$shaderDetails = foreach ($group in $shaderGroups) {
+    $family = Encode-Html $group['name']
+    $opcodeList = foreach ($opcodeEntry in $group['opcodes']) {
+        "            <li><code>$($opcodeEntry['opcode']) $($opcodeEntry['name'])</code></li>"
+    }
+    @"
+      <details>
+        <summary>$family · $($group['count'])/$($group['slotCount']) named</summary>
+        <ul class="opcode-list">
+$($opcodeList -join [Environment]::NewLine)
+        </ul>
+      </details>
+"@
 }
 
 . (Join-Path $PSScriptRoot 'StatusMap.ps1')
@@ -263,6 +287,10 @@ $html = @"
     td { font-variant-numeric: tabular-nums; }
     code { font-size: .95em; }
     .status-map { display: block; width: 100%; height: auto; }
+    details { border-bottom: 1px solid var(--line); }
+    summary { cursor: pointer; padding: .45rem 0; }
+    .opcode-list { columns: 18rem; list-style: none; margin: 0 0 .75rem; padding: 0; }
+    .opcode-list li { break-inside: avoid; overflow-wrap: anywhere; }
   </style>
 </head>
 <body>
@@ -280,7 +308,13 @@ $html = @"
   <section aria-labelledby="status-map">
     <h2 id="status-map">Source status map</h2>
     <p><a href="status-map.svg"><img class="status-map" src="status-map.svg" alt="Loam status map with $registryTotal resolver entries and $shaderTotal named GFX10 opcode slots out of $shaderSlots"></a></p>
-    <p>Shader cells show named and unnamed opcode values. Unnamed values include reserved encodings.</p>
+  </section>
+
+  <section aria-labelledby="shader-opcodes">
+    <h2 id="shader-opcodes">GFX10 shader opcodes</h2>
+    <p>Green cells mark opcodes with names returned by Loam's decoder. Gray cells include reserved values. The VOP3 groups include the 64-bit encodings of VOPC, VOP2, and VOP1.</p>
+    <p>Separate DXIL output tests cover <a href="$repositoryUrl/blob/main/crates/victory-shader/src/emit/valu_tests.rs"><code>v_lerp_u8</code></a> and <a href="$repositoryUrl/blob/main/crates/victory-shader/src/emit/mod.rs">representative SMEM scalar buffer loads</a>. The map measures instruction recognition.</p>
+$($shaderDetails -join [Environment]::NewLine)
   </section>
 
   <section aria-labelledby="benchmark">
@@ -357,7 +391,7 @@ $badge = New-ProgressBadge 'opening scene benchmark' "$fps FPS" 165 74 '#2f81f7'
 $registryBadge = New-ProgressBadge 'libraries*' "$registryTotal entries" 75 75 '#dfb317'
 $shaderBadge = New-ProgressBadge 'GFX10 opcode names' "$shaderTotal/$shaderSlots" 131 76 '#4c1'
 $aluBadge = New-ProgressBadge 'GFX10 ALU slots' $shaderPanels['alu'] 112 70 '#4c1'
-$memoryBadge = New-ProgressBadge 'GFX10 memory slots' $shaderPanels['memory'] 137 70 '#4c1'
+$memoryBadge = New-ProgressBadge 'GFX10 memory and export' $shaderPanels['memory'] 165 70 '#4c1'
 
 $outputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputDirectory)
 if ((Join-Path $outputPath 'progress.json') -eq $dataFile) {

@@ -14,3 +14,6 @@
 - Added short WASD pulses for offline diagnostics that respect input from a physical stick. Verified movement away from the barred window in the opening prison room.
 - Recorded 3.28 FPS, 303 ms median, and 328 ms p95 across 170 intervals in a stationary 60-second window with the lower-memory preset. Four follow-up runs reached the Windows commit reserve. Windows logged no new NVIDIA driver or display-reset events during those runs.
 - Verified Direct3D 12 GPU upload heaps on an RTX 5060 Ti. A 1.5 GiB upload budget measured 5.15 FPS and 194.36 ms mean frame time over a stationary 60-second window. The test kept rendering through movement before reaching the Windows memory reserve. A 2 GiB trial reached the same reserve as the scene loaded. Windows logged zero display-driver resets in both runs.
+- Switched the shader status map to synthetic decoder probes. It now shows the 64-bit VOPC, VOP2, and VOP1 forms in VOP3 and lists recognized opcodes by family.
+- Added DXIL translation for the VOP3 packed-byte average instruction, `v_lerp_u8`. Verified independent byte rounding on an RTX 5060 Ti and WARP.
+- Fixed disassembly for the SMEM instructions `s_memtime`, `s_memrealtime`, and `s_get_waveid_in_workgroup`. They now print just their destination register.

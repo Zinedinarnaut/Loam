@@ -7,8 +7,10 @@ on:
       - '.github/workflows/progress-pages.yml'
       - 'scripts/Build-Progress.ps1'
       - 'scripts/StatusMap.ps1'
-      - 'crates/victory-shader/src/gfx10/mod.rs'
-      - 'crates/victory-shader/src/gfx10/opcodes.rs'
+      - 'crates/victory-shader/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'rust-toolchain.toml'
       - 'site/progress.json'
   schedule:
     - cron: '17 18 * * *'

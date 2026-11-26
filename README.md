@@ -8,13 +8,13 @@ Loam is a Windows compatibility layer for Xbox Series software. It runs the game
 
 ## Status
 
-[![System libraries](https://zinedinarnaut.github.io/Loam/registry.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html#registry) [![Named GFX10 ALU opcode slots](https://zinedinarnaut.github.io/Loam/gfx10-alu.svg)](https://zinedinarnaut.github.io/Loam/progress.html#status-map) [![Named GFX10 memory opcode slots](https://zinedinarnaut.github.io/Loam/gfx10-memory.svg)](https://zinedinarnaut.github.io/Loam/progress.html#status-map) [![Opening scene benchmark](https://zinedinarnaut.github.io/Loam/fps.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html#benchmark)
+[![System libraries](https://zinedinarnaut.github.io/Loam/registry.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html#registry) [![Named GFX10 ALU opcode slots](https://zinedinarnaut.github.io/Loam/gfx10-alu.svg?v=3)](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) [![Named GFX10 memory and export opcode slots](https://zinedinarnaut.github.io/Loam/gfx10-memory.svg?v=3)](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) [![Opening scene benchmark](https://zinedinarnaut.github.io/Loam/fps.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html#benchmark)
 
-[![Progress map](https://zinedinarnaut.github.io/Loam/status-map.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html)
+[![Progress map](https://zinedinarnaut.github.io/Loam/status-map.svg?v=3)](https://zinedinarnaut.github.io/Loam/progress.html)
 
-[Progress history](https://zinedinarnaut.github.io/Loam/progress.html#earlier)
+[Shader opcode details](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) · [Progress history](https://zinedinarnaut.github.io/Loam/progress.html#earlier)
 
-<sub>* System libraries count entries in the [Windows resolver registry](crates/victory-hle/src/modules/mod.rs). Green shader cells have names in the [GFX10 opcode tables](crates/victory-shader/src/gfx10/opcodes.rs). Gray cells include reserved values.</sub>
+<sub>* System libraries count entries in the [Windows resolver registry](crates/victory-hle/src/modules/mod.rs). Green shader cells are named by the [GFX10 decoder](crates/victory-shader/src/gfx10/mod.rs). Gray cells include reserved values. Each 64-bit alias in VOP3 has its own cell. DXIL translation is tested separately.</sub>
 
 The opening checkpoint loads, and scripted keyboard input moved the player away from the barred window and into the room. Sustained gameplay still needs verification. Windows reached its memory reserve in the follow-up runs.
 
