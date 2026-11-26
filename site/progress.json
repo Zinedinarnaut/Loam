@@ -63,7 +63,7 @@
           "id": "d3d12-pipelines",
           "label": "RTX pipeline checks by shader",
           "status": "Partial",
-          "evidence": "A D3D12 debug-layer test on the RTX 5060 Ti found that the three rejected compute shaders requested 64-lane waves on a device that supports 32. Particle visibility and alpha prefilter now emit validated 32-lane DXIL and create D3D12 pipelines in both the standalone probe and a fresh Loam boot. The game bound the particle visibility pipeline as the opening scene loaded. Defrag still requests 64 lanes because its divergent loop needs ordered shared-memory operations and cross-lane reads. The shadow shader still stops in the translator when it needs to exchange a lane mask across divergent threads.",
+          "evidence": "A D3D12 debug-layer test on the RTX 5060 Ti found that the three rejected compute shaders requested 64-lane waves on a device that supports 32. Particle visibility and alpha prefilter now emit validated 32-lane DXIL and create D3D12 pipelines in both the standalone probe and a fresh Loam boot. The game bound both pipelines as the opening scene loaded. The first captures were black, then the game rendered the prison yard. Frame times in the opening scene stayed above the 33.3 ms target. Defrag still requests 64 lanes because its divergent loop needs ordered shared-memory operations and cross-lane reads. The shadow shader still stops in the translator when it needs to exchange a lane mask across divergent threads.",
           "doneWhen": "Resolve host refusals and shader translation failures for mission pipelines. Verify the required draws and dispatches during movement.",
           "checks": [
             { "label": "Create pipelines to render the first room", "status": "Verified" },
