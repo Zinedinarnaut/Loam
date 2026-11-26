@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-27
+
+- Compared changed-only and full buffer uploads on RTX 5060 Ti with Wide hashing. In the same stationary Series S scene, sampled card uploads fell from 107.5 to 46.2 MB per frame. Median frame time moved from 190 to 188 ms across five alternating phases per mode.
+
 ## 2026-11-26
 
 - Verified a synthetic two-wave shared-memory test for Defrag on an RTX 5060 Ti. The in-game pipeline still fails. Confirmed another Cascading Shadows dispatch and recorded where its two output textures transition. The visual check is still open.

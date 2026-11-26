@@ -26,12 +26,16 @@ The opening checkpoint loads, and scripted input moved the player away from the 
 
 | Opening prison scene | FPS | Median frame time | P95 frame time | Intervals |
 | --- | ---: | ---: | ---: | ---: |
-| Barred-window view, 1.5 GiB GPU upload budget | **5.15** | 192 ms | 218 ms | 262 |
+| Barred-window view, changed-only buffer uploads (alternating test) | 5.26 | 188 ms | 207 ms | 401 |
+| Barred-window view, full buffer uploads (alternating test) | 5.20 | 190 ms | 208 ms | 372 |
+| Barred-window view, 1.5 GiB GPU upload budget | 5.15 | 192 ms | 218 ms | 262 |
 | Barred-window view, Wide hash (matched test) | 4.97 | 195 ms | 226 ms | 278 |
 | Barred-window view, Serial hash (matched test) | 3.21 | 306 ms | 348 ms | 182 |
 | Barred-window view, lower-memory preset | 3.28 | 303 ms | 328 ms | 170 |
 | Doorway view, serial hash | 3.24 | 304 ms | 330 ms | 269 |
 | Bunks view, wide hash with limited texture catch-up | 3.15 | 328 ms | 360 ms | 178 |
+
+**Nov 27 buffer-upload test.** With Wide hashing, the changed-only mode cut sampled card uploads from 107.5 to 46.2 MB per frame. The two alternating-test rows each pool complete frame reports from five phases in the same stationary scene.
 
 The matched hash tests used the same build, stationary view, and Series S settings on an RTX 5060 Ti. The separate GPU upload run rendered the room after movement, then reached the Windows memory reserve. The sustained gameplay target is **33.3 ms per frame (about 30 FPS)**. [Full results](https://zinedinarnaut.github.io/Loam/progress.html#benchmark) · [Benchmark data](site/progress.json)
 

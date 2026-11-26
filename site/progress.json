@@ -44,7 +44,7 @@
           "id": "frame-rate",
           "label": "Frame rate",
           "status": "Pending",
-          "evidence": "The RTX 5060 Ti measured 5.15 FPS and 194.36 ms per frame in a stationary 60-second sample. Submission preparation and GPU work each averaged about 80 ms in diagnostics from that window.",
+          "evidence": "The RTX 5060 Ti measured 5.15 FPS and 194.36 ms per frame in a stationary 60-second GPU upload sample. In a separate alternating test with Wide hashing, changed-only buffer uploads reduced sampled card traffic from 107.5 to 46.2 MB per frame. Median frame time moved from 190 to 188 ms. Both tests used a stationary camera.",
           "doneWhen": "Reduce submission, GPU, and copy-back time, then meet the published FPS target during sustained movement on the RTX 5060 Ti. Report mean, median, and 95th-percentile frame times.",
           "checks": [
             { "label": "Stationary RTX benchmark", "status": "Verified" },
@@ -271,6 +271,24 @@
     }
   ],
   "earlierRuns": [
+    {
+      "label": "Changed-only buffer uploads · alternating Wide hash test",
+      "fps": 5.26,
+      "meanMs": 190.0,
+      "medianMs": 188,
+      "p95Ms": 207,
+      "intervals": 401,
+      "outcome": "Five phases and about 76 seconds of measured frames in a 200-second comparison. Series S at 1080p, RTX 5060 Ti and runtime 780a22f. Median sampled buffer uploads were 46.2 MB per frame."
+    },
+    {
+      "label": "Full buffer uploads · alternating Wide hash test",
+      "fps": 5.20,
+      "meanMs": 192.12,
+      "medianMs": 190,
+      "p95Ms": 208,
+      "intervals": 372,
+      "outcome": "Five phases and about 71 seconds of measured frames in the same stationary scene. Median sampled buffer uploads were 107.5 MB per frame."
+    },
     {
       "label": "Serial hash · barred-window comparison",
       "fps": 3.21,
