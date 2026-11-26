@@ -67,9 +67,10 @@
           "doneWhen": "Resolve host refusals and shader translation failures for mission pipelines. Verify the required draws and dispatches during movement.",
           "checks": [
             { "label": "Create pipelines to render the first room", "status": "Verified" },
-            { "label": "Resolve D3D12 host refusals", "status": "Partial" },
-            { "label": "Fix the reported compute translation failure", "status": "Pending" },
-            { "label": "Verify required direct and indirect draws during movement", "status": "Unverified" }
+            { "label": "Restore and validate the suppressed ray-tracing builder stages", "status": "Partial", "mapLabel": "Restore RT builder stages" },
+            { "label": "Resolve D3D12 host refusals with 0x80070057", "status": "Partial", "mapLabel": "Fix D3D12 rejects (0x80070057)" },
+            { "label": "Translate lane-mask exchange during divergent execution", "status": "Pending", "mapLabel": "Fix divergent lane-mask exchange" },
+            { "label": "Verify required direct and indirect draws during movement", "status": "Unverified", "mapLabel": "Verify draws during movement" }
           ]
         },
         {
@@ -176,7 +177,8 @@
             { "label": "Byte average and per-byte rounding", "status": "Verified" },
             { "label": "Floating-point median fixtures", "status": "Verified" },
             { "label": "64-bit compare fixture", "status": "Verified" },
-            { "label": "Check VOP3 forms implicated by mission diagnostics", "status": "Pending" }
+            { "label": "Identify the VOP3 forms needed by the mission", "status": "Pending", "mapLabel": "Identify mission forms" },
+            { "label": "Verify live DXIL output for operand modifiers and 64-bit aliases used by the mission", "status": "Unverified", "mapLabel": "Test modifiers and aliases" }
           ]
         },
         {
@@ -199,9 +201,9 @@
           "doneWhen": "Validate the scalar loads used by mission shaders, including dynamic offsets, descriptor tracing, and bounds.",
           "checks": [
             { "label": "Scalar buffer load x4, x8, and x16 fixtures", "status": "Verified" },
-            { "label": "Mission scalar reads with dynamic offsets", "status": "Unverified" },
-            { "label": "Mission scalar read results and bounds", "status": "Unverified" },
-            { "label": "Track descriptors used by mission scalar reads", "status": "Partial" }
+            { "label": "Mission scalar reads with dynamic offsets", "status": "Unverified", "mapLabel": "Test dynamic offsets" },
+            { "label": "Mission scalar read results and bounds", "status": "Unverified", "mapLabel": "Check load bounds" },
+            { "label": "Track descriptors used by mission scalar reads", "status": "Partial", "mapLabel": "Trace descriptors" }
           ]
         },
         {

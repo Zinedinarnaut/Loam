@@ -122,6 +122,9 @@ $roadmapTracks = @(
                                 [pscustomobject]@{
                                     Label = Read-Field $check 'label' $checkPath string
                                     Status = $checkStatus
+                                    MapLabel = if ($check.Contains('mapLabel')) {
+                                        Read-Field $check 'mapLabel' $checkPath string
+                                    }
                                 }
                             }
                         }
@@ -300,8 +303,28 @@ $($opcodeList -join [Environment]::NewLine)
 }
 
 . (Join-Path $PSScriptRoot 'StatusMap.ps1')
-$statusMap = New-LoamStatusMap -Groups $groups -ShaderGroups $shaderGroups
+$mapTasks = @{ VOP3 = 'shader-translation'; SMEM = 'smem'; pipelines = 'd3d12-pipelines' }
+$mapWork = @{}
+foreach ($key in $mapTasks.Keys) {
+    $tile = $null
+    if ($roadmapById.TryGetValue($mapTasks[$key], [ref]$tile)) {
+        $remaining = @($tile.Checks | Where-Object { $_.Status -cne 'Verified' -and $_.MapLabel })
+        if ($remaining.Count) {
+            $mapWork[$key] = [pscustomobject]@{
+                Label = $tile.Label
+                Anchor = "task-$($tile.Id)"
+                Lines = @($remaining | ForEach-Object MapLabel)
+            }
+        }
+    }
+}
+$sourceMap = New-LoamStatusMap -Groups $groups -ShaderGroups $shaderGroups
+$statusMap = $sourceMap
 $statusAlt = "Loam status map with $registryTotal resolver entries and $shaderTotal named GFX10 opcode slots out of $shaderSlots"
+if ($mapWork.Count) {
+    $statusMap = New-LoamStatusMap -Groups $groups -ShaderGroups $shaderGroups -WorkItems $mapWork
+    $statusAlt += '. Selected tiles show the remaining work, with details below.'
+}
 $roadmapHtml = ''
 if ($roadmapTracks.Count) {
     $sections = foreach ($track in $roadmapTracks) {
@@ -522,7 +545,7 @@ if ((Join-Path $outputPath 'progress.json') -eq $dataFile) {
 [IO.File]::WriteAllText((Join-Path $outputPath 'gfx10-alu.svg'), $aluBadge)
 [IO.File]::WriteAllText((Join-Path $outputPath 'gfx10-memory.svg'), $memoryBadge)
 [IO.File]::WriteAllText((Join-Path $outputPath 'status-map.svg'), $statusMap)
-[IO.File]::WriteAllText((Join-Path $outputPath 'source-map.svg'), $statusMap)
+[IO.File]::WriteAllText((Join-Path $outputPath 'source-map.svg'), $sourceMap)
 [IO.File]::WriteAllText((Join-Path $outputPath 'fps-target.svg'), $targetBadge)
 foreach ($id in @('mission-completion', 'windows-memory')) {
     $tile = $null

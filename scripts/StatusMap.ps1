@@ -9,6 +9,8 @@ function New-LoamStatusMap {
     .PARAMETER ShaderGroups
     Opcode dictionaries with name, count, slotCount, a panel (alu or memory),
     and the zero-based codes of named slots within that family.
+    .PARAMETER WorkItems
+    Optional captions for shader tile names and the missing pipelines group.
     #>
     [CmdletBinding()]
     [OutputType([string])]
@@ -19,13 +21,49 @@ function New-LoamStatusMap {
 
         [Parameter(Mandatory)]
         [ValidateNotNullOrEmpty()]
-        [object[]]$ShaderGroups
+        [object[]]$ShaderGroups,
+
+        [Collections.IDictionary]$WorkItems = @{}
     )
 
     $content = [Collections.Generic.List[string]]::new()
 
     function ConvertTo-MapLabel([string]$Value) {
         return [Net.WebUtility]::HtmlEncode([Xml.XmlConvert]::VerifyXmlChars($Value))
+    }
+
+    function Add-ShaderWork($Work, [int]$X, [int]$Y, [int]$W, [int]$H) {
+        $step = 14
+        $height = 18 + $step * $Work.Lines.Count
+        $top = $Y + $H - $height - 3
+        $left = $X + 7
+        $anchor = ConvertTo-MapLabel $Work.Anchor
+        $content.Add("    <a href='progress.html#$anchor' class='shader-work'>")
+        $content.Add("      <rect x='$($X + 3)' y='$top' width='$($W - 6)' height='$height' class='group' fill-opacity='.92'/>")
+        $content.Add("      <text x='$left' y='$($top + 13)' class='group-label'>DXIL remaining</text>")
+        for ($index = 0; $index -lt $Work.Lines.Count; $index++) {
+            $label = ConvertTo-MapLabel $Work.Lines[$index]
+            $baseline = $top + 13 + ($index + 1) * $step
+            $content.Add("      <text x='$left' y='$baseline' class='group-label'>$label</text>")
+        }
+        $content.Add('    </a>')
+    }
+
+    function Add-PipelineWork($Work, [int]$Top) {
+        $name = ConvertTo-MapLabel $Work.Label
+        $anchor = ConvertTo-MapLabel $Work.Anchor
+        $content.Add("  <text x='4' y='$($Top + 14)' class='section-label'>$name</text>")
+        $content.Add("  <a href='progress.html#$anchor' class='pipeline-work'>")
+        for ($index = 0; $index -lt $Work.Lines.Count; $index++) {
+            $left = 4 + [int][Math]::Floor(992 * $index / $Work.Lines.Count)
+            $right = 4 + [int][Math]::Floor(992 * ($index + 1) / $Work.Lines.Count)
+            $label = ConvertTo-MapLabel $Work.Lines[$index]
+            $content.Add("    <rect x='$left' y='$($Top + 20)' width='$($right - $left)' height='32' class='group'/>")
+            $content.Add("    <rect x='$($left + 6)' y='$($Top + 30)' width='11' height='11' fill='#6e7681'/>")
+            $content.Add("    <text x='$($left + 23)' y='$($Top + 40)' class='group-label'>$label</text>")
+            $content.Add("    <rect x='$left' y='$($Top + 20)' width='$($right - $left)' height='32' class='group-border'/>")
+        }
+        $content.Add('  </a>')
     }
 
     $libraries = @(foreach ($entry in $Groups) {
@@ -120,6 +158,9 @@ function New-LoamStatusMap {
             }
             $content.Add("    <text x='$($X + 3)' y='$($Y + 13)' class='group-label'>$(ConvertTo-MapLabel $label)</text>")
         }
+        if ($isShader -and $WorkItems.Contains($Entry.Name)) {
+            Add-ShaderWork $WorkItems[$Entry.Name] $X $Y $W $H
+        }
         $content.Add("    <rect x='$X' y='$Y' width='$W' height='$H' class='group-border'/>")
         $content.Add('  </g>')
     }
@@ -189,10 +230,21 @@ function New-LoamStatusMap {
     Add-ShaderSection @($opcodes | Where-Object Panel -EQ 'alu') 'GFX10 ALU opcodes' 4 426 490 279
     Add-ShaderSection @($opcodes | Where-Object Panel -EQ 'memory') 'GFX10 memory and export opcodes' 509 426 487 279
 
+    $legendY = 728
+    $description = 'Library tiles show resolver registrations. Shader tiles show decoder recognition by encoding family, including the VOP3 forms of VOPC, VOP2, and VOP1.'
+    if ($WorkItems.Contains('pipelines')) {
+        Add-PipelineWork $WorkItems['pipelines'] 721
+        $legendY = 785
+    }
+    if ($WorkItems.Count) {
+        $description += ' Selected tiles show remaining translation and pipeline work.'
+    }
+    $height = $legendY + 20
+
     return @"
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="748" viewBox="0 0 1000 748" role="img" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="$height" viewBox="0 0 1000 $height" role="img" aria-labelledby="title description">
   <title id="title">Loam system libraries and GFX10 opcodes</title>
-  <desc id="description">Library tiles show resolver registrations. Shader tiles show decoder recognition by encoding family, including the VOP3 forms of VOPC, VOP2, and VOP1.</desc>
+  <desc id="description">$description</desc>
   <style>
     text { font-family: Arial, sans-serif; fill: white; stroke: #0d1117; stroke-width: 3; stroke-linejoin: round; paint-order: stroke; }
     .section-label { font-size: 16px; }
@@ -203,12 +255,12 @@ function New-LoamStatusMap {
     .registry-cell, .named { fill: #2ea043; }
     .unnamed { fill: #6e7681; }
   </style>
-  <rect width="1000" height="748" fill="#0d1117"/>
+  <rect width="1000" height="$height" fill="#0d1117"/>
 $($content -join [Environment]::NewLine)
-  <rect x="4" y="728" width="11" height="11" class="named"/>
-  <text x="20" y="738" class="legend">Named opcode slot</text>
-  <rect x="147" y="728" width="11" height="11" class="unnamed"/>
-  <text x="163" y="738" class="legend">Unnamed opcode slot, including reserved encodings</text>
+  <rect x="4" y="$legendY" width="11" height="11" class="named"/>
+  <text x="20" y="$($legendY + 10)" class="legend">Named opcode slot</text>
+  <rect x="147" y="$legendY" width="11" height="11" class="unnamed"/>
+  <text x="163" y="$($legendY + 10)" class="legend">Unnamed opcode slot, including reserved encodings</text>
 </svg>
 "@
 }

@@ -20,3 +20,4 @@
 - Replaced the headline status tiles with the GTA VI playability roadmap. Each tile records the evidence and its completion check. Opcode and resolver maps remain available in the source reference.
 - Restored the dense status grid in the README, with separate work tiles for missing pipelines, VOP3, and SMEM. The smaller cells show individual checks.
 - Restored the original library and GFX10 treemaps in README Status and documented what accounted for the pipeline skips.
+- Put the remaining DXIL work inside the VOP3 and SMEM tiles and added a matching row for missing pipeline checks.
