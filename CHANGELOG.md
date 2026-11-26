@@ -19,3 +19,4 @@
 - Fixed disassembly for the SMEM instructions `s_memtime`, `s_memrealtime`, and `s_get_waveid_in_workgroup`. They now print just their destination register.
 - Replaced the headline status tiles with the GTA VI playability roadmap. Each tile records the evidence and its completion check. Opcode and resolver maps remain available in the source reference.
 - Restored the dense status grid in the README, with separate work tiles for missing pipelines, VOP3, and SMEM. The smaller cells show individual checks.
+- Restored the original library and GFX10 treemaps in README Status and documented what accounted for the pipeline skips.

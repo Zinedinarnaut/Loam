@@ -63,7 +63,7 @@
           "id": "d3d12-pipelines",
           "label": "Missing pipelines",
           "status": "Partial",
-          "evidence": "The stationary benchmark reported around 270 skips per frame under missing host pipelines. Most were suppressed ray-tracing builder stages. Diagnostics also recorded host refusals and a compute translation failure.",
+          "evidence": "In the 5.15 FPS stationary benchmark, diagnostics reported around 270 skips per frame under missing host pipelines. About 266 were suppressed ray-tracing builder stages, about four followed D3D12 rejections of translated compute pipelines with 0x80070057, and about one came from a shader whose lane-mask exchange failed to translate when some lanes were inactive. These are rounded per-frame averages.",
           "doneWhen": "Resolve host refusals and shader translation failures for mission pipelines. Verify the required draws and dispatches during movement.",
           "checks": [
             { "label": "Create pipelines to render the first room", "status": "Verified" },
@@ -104,7 +104,6 @@
     },
     {
       "label": "Opening mission and PC controls",
-      "wide": true,
       "tiles": [
         {
           "id": "boot-and-menu",

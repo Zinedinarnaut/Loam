@@ -1,142 +1,6 @@
 #Requires -Version 7.0
 
-function ConvertTo-MapLabel([string]$Value) {
-    return [Net.WebUtility]::HtmlEncode([Xml.XmlConvert]::VerifyXmlChars($Value))
-}
-
-function Get-LoamTreemap([object[]]$Entries, [int]$X, [int]$Y, [int]$W, [int]$H) {
-    if ($Entries.Count -eq 0) { return }
-    if ($Entries.Count -eq 1) {
-        [pscustomobject]@{ Entry = $Entries[0]; X = $X; Y = $Y; W = $W; H = $H }
-        return
-    }
-
-    # Divide the rectangle in proportion to the entries' weights.
-    $weight = ($Entries | Measure-Object -Property LayoutWeight -Sum).Sum
-    $splitWeight = 0
-    $splitCount = 0
-    while ($splitCount -lt ($Entries.Count - 1)) {
-        $nextWeight = $splitWeight + $Entries[$splitCount].LayoutWeight
-        if ($splitCount -gt 0 -and [Math]::Abs($nextWeight - $weight / 2) -gt
-            [Math]::Abs($splitWeight - $weight / 2)) {
-            break
-        }
-        $splitWeight = $nextWeight
-        $splitCount++
-    }
-    $first = $Entries[0..($splitCount - 1)]
-    $second = $Entries[$splitCount..($Entries.Count - 1)]
-    $fraction = $splitWeight / $weight
-    $splitWidth = $W -ge $H
-    if ($splitWidth -and $second.Count -eq 1) {
-        $labelWidth = 5 + $second[0].Name.Length * 6.6
-        $remaining = 1 - $fraction
-        $splitWidth = $W * $remaining -ge $labelWidth -or $H * $remaining -lt 16
-    }
-    if ($splitWidth) {
-        $firstWidth = [int][Math]::Clamp([Math]::Round($W * $fraction), 1, $W - 1)
-        Get-LoamTreemap $first $X $Y $firstWidth $H
-        Get-LoamTreemap $second ($X + $firstWidth) $Y ($W - $firstWidth) $H
-    } else {
-        $firstHeight = [int][Math]::Clamp([Math]::Round($H * $fraction), 1, $H - 1)
-        Get-LoamTreemap $first $X $Y $W $firstHeight
-        Get-LoamTreemap $second $X ($Y + $firstHeight) $W ($H - $firstHeight)
-    }
-}
-
-function New-LoamRoadmap {
-    param([object[]]$Tracks, [System.Collections.IDictionary]$States)
-
-    $content = [Collections.Generic.List[string]]::new()
-    function Add-Track($Track, [int]$X, [int]$Y, [int]$W, [int]$H) {
-        $heading = ConvertTo-MapLabel $Track.Label
-        $content.Add("  <text x='$X' y='$($Y + 15)' class='section-label'>$heading</text>")
-        $entries = @(foreach ($tile in $Track.Tiles) {
-            [pscustomobject]@{ Name = $tile.Label; LayoutWeight = [Math]::Max(1, $tile.Checks.Count); Tile = $tile }
-        })
-        foreach ($slot in (Get-LoamTreemap $entries $X ($Y + 21) $W $H)) {
-            $tile = $slot.Entry.Tile
-            $name = ConvertTo-MapLabel $tile.Label
-            $status = $tile.Status
-            $state = $States[$status]
-            $color = if ($tile.Checks.Count) { $state.Surface } else { $state.Badge }
-            $x0 = $slot.X
-            $y0 = $slot.Y
-            $w0 = $slot.W
-            $h0 = $slot.H
-            $content.Add("  <a href='progress.html#task-$($tile.Id)' aria-label='$name ($status)'>")
-            $content.Add("    <title>$name ($status)</title>")
-            $content.Add("    <rect x='$x0' y='$y0' width='$w0' height='$h0' fill='$color' class='tile'/>")
-            if ($tile.Checks.Count -and $h0 -gt 25) {
-                $checks = @(foreach ($check in $tile.Checks) {
-                    [pscustomobject]@{ Name = ''; LayoutWeight = 1; Check = $check }
-                })
-                foreach ($cell in (Get-LoamTreemap $checks ($x0 + 2) ($y0 + 20) ($w0 - 4) ($h0 - 22))) {
-                    $check = $cell.Entry.Check
-                    $checkLabel = ConvertTo-MapLabel $check.Label
-                    $checkColor = $States[$check.Status].Badge
-                    $content.Add("    <rect x='$($cell.X)' y='$($cell.Y)' width='$($cell.W)' height='$($cell.H)' fill='$checkColor' class='check'><title>$checkLabel ($($check.Status))</title></rect>")
-                }
-            }
-            $lines = @($tile.Label)
-            $labelCapacity = [int][Math]::Floor(($w0 - 10) / 8)
-            if (!$tile.Checks.Count -and $h0 -ge 35 -and $labelCapacity -gt 0 -and $tile.Label.Length -gt $labelCapacity) {
-                $breakAt = $tile.Label.LastIndexOf(' ', $labelCapacity)
-                if ($breakAt -gt 0) {
-                    $lines = @($tile.Label.Substring(0, $breakAt), $tile.Label.Substring($breakAt + 1))
-                }
-            }
-            $longest = ($lines | ForEach-Object Length | Measure-Object -Maximum).Maximum
-            $font = [int][Math]::Min(15, [Math]::Floor(($w0 - 10) / ($longest * 0.56)))
-            for ($line = 0; $line -lt $lines.Count; $line++) {
-                $label = ConvertTo-MapLabel $lines[$line]
-                $content.Add("    <text x='$($x0 + 5)' y='$($y0 + 15 + $line * 16)' class='tile-label' font-size='$font'>$label</text>")
-            }
-            $content.Add('  </a>')
-        }
-    }
-
-    $top = 6
-    for ($index = 0; $index -lt $Tracks.Count; $index++) {
-        $track = $Tracks[$index]
-        if (!$track.Wide -and $index + 1 -lt $Tracks.Count -and !$Tracks[$index + 1].Wide) {
-            Add-Track $track 4 $top 490 166
-            Add-Track $Tracks[$index + 1] 505 $top 491 166
-            $index++
-            $top += 203
-        } else {
-            Add-Track $track 4 $top 992 79
-            $top += 116
-        }
-    }
-
-    $legendX = 4
-    foreach ($status in $States.Keys) {
-        $content.Add("  <rect x='$legendX' y='$top' width='11' height='11' fill='$($States[$status].Badge)'/>")
-        $content.Add("  <text x='$($legendX + 16)' y='$($top + 10)' class='legend'>$status</text>")
-        $legendX += 96
-    }
-    $height = $top + 20
-
-    return @"
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="$height" viewBox="0 0 1000 $height" role="img" aria-labelledby="title description">
-  <title id="title">Loam playability status grid</title>
-  <desc id="description">Work tiles and individual checks for Loam, colored by status. Tile links lead to evidence and completion checks.</desc>
-  <style>
-    text { font-family: Arial, sans-serif; fill: #f0f6fc; }
-    .section-label { font-size: 16px; }
-    .tile-label { stroke: #0d1117; stroke-width: 2; stroke-linejoin: round; paint-order: stroke; }
-    .legend { font-size: 12px; }
-    .tile, .check { stroke: #0d1117; stroke-width: 1.5; }
-    a:hover .tile, a:focus .tile { stroke: #f0f6fc; }
-  </style>
-  <rect width="1000" height="$height" fill="#0d1117"/>
-$($content -join [Environment]::NewLine)
-</svg>
-"@
-}
-
-function New-LoamReferenceMap {
+function New-LoamStatusMap {
     <#
     .SYNOPSIS
     Renders resolver registrations and named opcode slots as two-color treemaps.
@@ -159,6 +23,10 @@ function New-LoamReferenceMap {
     )
 
     $content = [Collections.Generic.List[string]]::new()
+
+    function ConvertTo-MapLabel([string]$Value) {
+        return [Net.WebUtility]::HtmlEncode([Xml.XmlConvert]::VerifyXmlChars($Value))
+    }
 
     $libraries = @(foreach ($entry in $Groups) {
         $name = $entry['name']
@@ -257,8 +125,46 @@ function New-LoamReferenceMap {
     }
 
     function Add-Treemap([object[]]$Entries, [int]$X, [int]$Y, [int]$W, [int]$H) {
-        foreach ($slot in (Get-LoamTreemap $Entries $X $Y $W $H)) {
-            Add-MapGroup $slot.Entry $slot.X $slot.Y $slot.W $slot.H
+        if ($Entries.Count -eq 1) {
+            Add-MapGroup $Entries[0] $X $Y $W $H
+            return
+        }
+        if ($Entries.Count -eq 0) {
+            return
+        }
+
+        # Divide the rectangle in proportion to the groups' weights.
+        $weight = ($Entries | Measure-Object -Property LayoutWeight -Sum).Sum
+        $splitWeight = 0
+        $splitCount = 0
+        while ($splitCount -lt ($Entries.Count - 1)) {
+            $nextWeight = $splitWeight + $Entries[$splitCount].LayoutWeight
+            if ($splitCount -gt 0 -and [Math]::Abs($nextWeight - $weight / 2) -gt
+                [Math]::Abs($splitWeight - $weight / 2)) {
+                break
+            }
+            $splitWeight = $nextWeight
+            $splitCount++
+        }
+        $first = $Entries[0..($splitCount - 1)]
+        $second = $Entries[$splitCount..($Entries.Count - 1)]
+        $fraction = $splitWeight / $weight
+        $splitWidth = $W -ge $H
+        if ($splitWidth -and $second.Count -eq 1) {
+            # A narrow strip can hide the last label. Try the other axis
+            # when it has room for a full line of text.
+            $labelWidth = 5 + $second[0].Name.Length * 6.6
+            $remaining = 1 - $fraction
+            $splitWidth = $W * $remaining -ge $labelWidth -or $H * $remaining -lt 16
+        }
+        if ($splitWidth) {
+            $firstWidth = [int][Math]::Clamp([Math]::Round($W * $fraction), 1, $W - 1)
+            Add-Treemap $first $X $Y $firstWidth $H
+            Add-Treemap $second ($X + $firstWidth) $Y ($W - $firstWidth) $H
+        } else {
+            $firstHeight = [int][Math]::Clamp([Math]::Round($H * $fraction), 1, $H - 1)
+            Add-Treemap $first $X $Y $W $firstHeight
+            Add-Treemap $second $X ($Y + $firstHeight) $W ($H - $firstHeight)
         }
     }
 

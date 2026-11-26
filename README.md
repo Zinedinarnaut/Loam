@@ -8,15 +8,19 @@ Loam is a Windows compatibility layer for Xbox Series software. It runs the game
 
 ## Status
 
-[![Windows memory status](https://zinedinarnaut.github.io/Loam/windows-memory.svg)](https://zinedinarnaut.github.io/Loam/progress.html#task-windows-memory) [![Opening mission status](https://zinedinarnaut.github.io/Loam/mission-completion.svg)](https://zinedinarnaut.github.io/Loam/progress.html#task-mission-completion) [![Gameplay FPS target](https://zinedinarnaut.github.io/Loam/fps-target.svg)](https://zinedinarnaut.github.io/Loam/progress.html#task-frame-rate)
+[![System libraries](https://zinedinarnaut.github.io/Loam/registry.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html#registry) [![Named GFX10 ALU opcode slots](https://zinedinarnaut.github.io/Loam/gfx10-alu.svg?v=3)](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) [![Named GFX10 memory and export opcode slots](https://zinedinarnaut.github.io/Loam/gfx10-memory.svg?v=3)](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) [![Opening scene benchmark](https://zinedinarnaut.github.io/Loam/fps.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html#benchmark)
 
-[![Loam status grid showing missing pipelines, VOP3, SMEM, and other work](https://zinedinarnaut.github.io/Loam/status-map.svg?v=6)](https://zinedinarnaut.github.io/Loam/progress.html#status-map)
+[![Progress map](https://zinedinarnaut.github.io/Loam/status-map.svg?v=7)](https://zinedinarnaut.github.io/Loam/progress.html#status-map)
 
-Small cells show individual checks.
+[Shader opcode details](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) · [Progress history](https://zinedinarnaut.github.io/Loam/progress.html#earlier)
 
-The menu, opening checkpoint, and scripted movement are verified. Windows memory is the first blocker to finishing the mission. The fastest measured stationary sample was 5.15 FPS on an RTX 5060 Ti. The goal is sustained gameplay at 33 FPS.
+<sub>* System libraries count entries in the [Windows resolver registry](crates/victory-hle/src/modules/mod.rs). Green shader cells are named by the [GFX10 decoder](crates/victory-shader/src/gfx10/mod.rs). Gray cells include reserved values. Each 64-bit alias in VOP3 has its own cell. DXIL translation is tested separately.</sub>
 
-[Missing pipelines](https://zinedinarnaut.github.io/Loam/progress.html#task-d3d12-pipelines) · [VOP3](https://zinedinarnaut.github.io/Loam/progress.html#task-shader-translation) · [SMEM](https://zinedinarnaut.github.io/Loam/progress.html#task-smem) · [All tile details](https://zinedinarnaut.github.io/Loam/progress.html#roadmap-details) · [Opcode reference](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes)
+The opening checkpoint loads, and scripted input moved the player away from the barred window. Windows reached its memory reserve in the follow-up runs. [Playability details](https://zinedinarnaut.github.io/Loam/progress.html#roadmap-details)
+
+**Missing pipelines.** The stationary RTX run logged about 270 skips per frame, mostly from suppressed ray-tracing builder stages. D3D12 also rejected translated compute pipelines, and a separate shader failed to translate an exchange between lanes when some lanes were inactive. [Pipeline details](https://zinedinarnaut.github.io/Loam/progress.html#task-d3d12-pipelines)
+
+**Shader translation.** Synthetic tests cover selected VOP3 arithmetic and SMEM scalar buffer loads. The shader forms required by the missing mission pipelines still need to be identified and tested. [VOP3](https://zinedinarnaut.github.io/Loam/progress.html#task-shader-translation) · [SMEM](https://zinedinarnaut.github.io/Loam/progress.html#task-smem)
 
 ## Benchmarks
 
