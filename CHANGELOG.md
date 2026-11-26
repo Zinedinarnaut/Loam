@@ -13,3 +13,4 @@
 - Reworked README Status to match AnyPS5's badge row and treemaps. The shader panels show which opcode values have names in Loam's GFX10 tables.
 - Added short WASD pulses for offline diagnostics that respect input from a physical stick. Verified movement away from the barred window in the opening prison room.
 - Recorded 3.28 FPS, 303 ms median, and 328 ms p95 across 170 intervals in a stationary 60-second window with the lower-memory preset. Four follow-up runs reached the Windows commit reserve. Windows logged no new NVIDIA driver or display-reset events during those runs.
+- Verified Direct3D 12 GPU upload heaps on an RTX 5060 Ti. A 1.5 GiB upload budget measured 5.15 FPS and 194.36 ms mean frame time over a stationary 60-second window. The test kept rendering through movement before reaching the Windows memory reserve. A 2 GiB trial reached the same reserve as the scene loaded. Windows logged zero display-driver resets in both runs.

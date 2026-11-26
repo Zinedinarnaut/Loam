@@ -53,7 +53,7 @@
     {
       "label": "Sustained gameplay",
       "status": "Unverified",
-      "detail": "Four follow-up runs reached the Windows memory reserve. Windows logged no new NVIDIA driver or display-reset events during those runs."
+      "detail": "The 1.5 GiB GPU upload test rendered the room after movement. Windows reached its memory reserve about 35 seconds after the first movement input. The 2 GiB trial reached the reserve as the scene loaded."
     },
     {
       "label": "Gameplay performance target",
@@ -62,6 +62,16 @@
     }
   ],
   "earlierRuns": [
+    {
+      "label": "1.5 GiB GPU upload budget · barred-window view",
+      "fps": 5.15,
+      "meanMs": 194.36,
+      "medianMs": 192,
+      "p95Ms": 218,
+      "intervals": 262,
+      "selectionSeconds": 60,
+      "outcome": "Stationary camera on an RTX 5060 Ti. The Windows memory guard stopped the run after movement."
+    },
     {
       "label": "Lower-memory preset · barred-window view",
       "fps": 3.28,

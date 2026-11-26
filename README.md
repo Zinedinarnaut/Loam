@@ -24,12 +24,13 @@ Loam [recompiles GFX10 shaders](crates/victory-shader/src/lib.rs) for Direct3D 1
 
 | Opening prison scene | FPS | Median frame time | P95 frame time | Intervals |
 | --- | ---: | ---: | ---: | ---: |
-| Barred-window view, reduced shader buffer windows | **4.97** | 195 ms | 226 ms | 278 |
+| Barred-window view, 1.5 GiB GPU upload budget | **5.15** | 192 ms | 218 ms | 262 |
+| Barred-window view, reduced shader buffer windows | 4.97 | 195 ms | 226 ms | 278 |
 | Barred-window view, lower-memory preset | 3.28 | 303 ms | 328 ms | 170 |
 | Doorway view, serial hash | 3.24 | 304 ms | 330 ms | 269 |
 | Bunks view, wide hash with limited texture catch-up | 3.15 | 328 ms | 360 ms | 178 |
 
-Both barred-window samples used an RTX 5060 Ti and the Series S profile. The fastest recorded run averaged 201.34 ms per frame at revision `780a22f`. The lower-memory run averaged 304.65 ms per frame over a 60-second stationary window, then reached the Windows memory reserve after a movement input. Camera views and runtime settings varied across runs. [Full results](https://zinedinarnaut.github.io/Loam/progress.html#benchmark) · [Benchmark data](site/progress.json)
+The barred-window samples used an RTX 5060 Ti and the Series S profile. The GPU upload run averaged 194.36 ms per frame in a 60-second stationary window. It rendered the room after movement, then reached the Windows memory reserve. Camera views, runtime settings, and background load varied across runs. [Full results](https://zinedinarnaut.github.io/Loam/progress.html#benchmark) · [Benchmark data](site/progress.json)
 
 ## Build and run
 
