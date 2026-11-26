@@ -130,6 +130,15 @@ fn operands(inst: &Instruction, name: &str, fields: &Fields) -> String {
             };
         }
         Fields::Smem {
+            data: Some(dst), ..
+        } if matches!(
+            name,
+            "s_memtime" | "s_memrealtime" | "s_get_waveid_in_workgroup"
+        ) =>
+        {
+            out = dst.to_string();
+        }
+        Fields::Smem {
             data,
             base,
             offset,
@@ -698,6 +707,19 @@ mod tests {
             one(&[0xF420_0144, 0x0400_0000], true),
             "s_buffer_load_dword s5, s[8:11], s2"
         );
+    }
+
+    #[test]
+    fn smem_with_only_a_scalar_destination() {
+        let words = [0xF490_0280, 0, 0xF494_1A80, 0, 0xF4A8_0140, 0];
+        let expected = [
+            "s_memtime s[10:11]",
+            "s_memrealtime vcc",
+            "s_get_waveid_in_workgroup s5",
+        ];
+        for wave64 in [false, true] {
+            assert_eq!(texts(&words, wave64), expected);
+        }
     }
 
     #[test]

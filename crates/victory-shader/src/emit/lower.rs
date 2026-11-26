@@ -8666,6 +8666,23 @@ impl<'a> Lower<'a> {
                 let (a, b) = (s(self, 0)?, s(self, 1)?);
                 self.mul_hi(a, b, name == "v_mul_hi_i32")
             }
+            "v_lerp_u8" => {
+                let (a, b, rounding) = (s(self, 0)?, s(self, 1)?, s(self, 2)?);
+                let common = self.s.m.bin(c, Bin::And, a, b);
+                let differing = self.s.m.bin(c, Bin::Xor, a, b);
+                // floor((a + b) / 2) = (a & b) + ((a ^ b) >> 1).
+                // Clear each byte's low bit before shifting so bytes stay independent.
+                let even_bits = k(self, 0xFEFE_FEFE);
+                let shift = k(self, 1);
+                let halves = self.s.m.bin(c, Bin::And, differing, even_bits);
+                let halves = self.s.m.bin(c, Bin::LShr, halves, shift);
+                let average = self.s.m.bin(c, Bin::Add, common, halves);
+                // Odd sums round up only when that byte's rounding bit is set.
+                let low_bits = k(self, 0x0101_0101);
+                let round_up = self.s.m.bin(c, Bin::And, rounding, differing);
+                let round_up = self.s.m.bin(c, Bin::And, round_up, low_bits);
+                self.s.m.bin(c, Bin::Add, average, round_up)
+            }
             "v_alignbit_b32" | "v_alignbyte_b32" => {
                 // The low dword of {a, b} >> shift.
                 let (a, b, sh) = (s(self, 0)?, s(self, 1)?, s(self, 2)?);

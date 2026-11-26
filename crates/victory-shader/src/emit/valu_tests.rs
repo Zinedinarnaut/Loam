@@ -413,6 +413,29 @@ fn v_permlane16_and_x16_read_the_lanes_their_selectors_pick() {
 }
 
 #[test]
+fn v_lerp_u8_averages_and_rounds_each_byte() {
+    let shader = build_valu_cs(&vop3(0x14d, 0, vgpr(1), vgpr(2), vgpr(3)));
+    let cases = [
+        [0, 0, u32::MAX, 0],
+        [u32::MAX, u32::MAX, u32::MAX, 0],
+        [0xff00_ff00, 0x00ff_00ff, 0x0100_0100, 0],
+        [0x0302_0100, 0x0807_0605, 0x0001_0001, 0],
+        [0x7f80_fe00, 0x80fe_0101, 0xfefe_fefe, 0],
+        [0x7f80_fe00, 0x80fe_0101, 0xfeff_feff, 0],
+    ];
+    run_cases(&shader, &cases, |backend, _, [a, b, rounding, _], got| {
+        let (a, b, rounding) = (a.to_le_bytes(), b.to_le_bytes(), rounding.to_le_bytes());
+        let expected = u32::from_le_bytes(std::array::from_fn(|i| {
+            ((u16::from(a[i]) + u16::from(b[i]) + u16::from(rounding[i] & 1)) / 2) as u8
+        }));
+        assert_eq!(
+            got, expected,
+            "{backend}: v_lerp_u8({a:02x?}, {b:02x?}, {rounding:02x?})"
+        );
+    });
+}
+
+#[test]
 fn v_med3_f32_matches_rdna2_with_nan() {
     // v_med3_f32 v0, v1, v2, v3 (VOP3 opcode 0x157)
     let shader = build_valu_cs(&vop3(0x157, 0, vgpr(1), vgpr(2), vgpr(3)));
