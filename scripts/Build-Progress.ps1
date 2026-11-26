@@ -81,6 +81,50 @@ $target = Read-Field $data 'target' '$' object
 $targetFps = Format-Number (Read-Field $target 'fps' 'target' positive)
 $targetMs = Format-Number (Read-Field $target 'frameMs' 'target' positive)
 
+$roadmapStates = [ordered]@{
+    Verified = @{ Surface = '#12251c'; Stroke = '#285238'; Accent = '#7ee29a'; Badge = '#237a3b' }
+    Partial = @{ Surface = '#272013'; Stroke = '#5a4923'; Accent = '#f1cd78'; Badge = '#8a5f13' }
+    Blocked = @{ Surface = '#32191d'; Stroke = '#70404a'; Accent = '#ff9c9d'; Badge = '#a33642' }
+    Unverified = @{ Surface = '#172135'; Stroke = '#384b69'; Accent = '#adc7f2'; Badge = '#345986' }
+    Pending = @{ Surface = '#20242d'; Stroke = '#424a58'; Accent = '#bcc5d4'; Badge = '#515a69' }
+}
+$roadmapById = [Collections.Generic.Dictionary[string, object]]::new([StringComparer]::Ordinal)
+$roadmapTracks = @(
+    if ($data.Contains('roadmap')) {
+        $tracks = Read-Field $data 'roadmap' '$' array
+        for ($trackIndex = 0; $trackIndex -lt $tracks.Count; $trackIndex++) {
+            $trackData = $tracks[$trackIndex]
+            $trackPath = "roadmap[$trackIndex]"
+            $trackName = Read-Field $trackData 'label' $trackPath string
+            $tileData = Read-Field $trackData 'tiles' $trackPath array
+            $tiles = @(
+                for ($tileIndex = 0; $tileIndex -lt $tileData.Count; $tileIndex++) {
+                    $item = $tileData[$tileIndex]
+                    $path = "$trackPath.tiles[$tileIndex]"
+                    $id = Read-Field $item 'id' $path string
+                    if ($id -cnotmatch '\A[a-z][a-z0-9]*(?:-[a-z0-9]+)*\z' -or $roadmapById.ContainsKey($id)) {
+                        throw "Invalid or duplicate roadmap tile identifier in $path."
+                    }
+                    $status = Read-Field $item 'status' $path string
+                    if ($status -cnotin $roadmapStates.Keys) {
+                        throw "Unknown roadmap status in $path."
+                    }
+                    $tile = [pscustomobject]@{
+                        Id = $id
+                        Label = Read-Field $item 'label' $path string
+                        Status = $status
+                        Evidence = Read-Field $item 'evidence' $path string
+                        DoneWhen = Read-Field $item 'doneWhen' $path string
+                    }
+                    $roadmapById.Add($id, $tile)
+                    $tile
+                }
+            )
+            [pscustomobject]@{ Label = $trackName; Tiles = $tiles }
+        }
+    }
+)
+
 $current = Read-Field $data 'current' '$' object
 $revision = Read-Field $current 'revision' 'current' string
 if ($revision -cnotmatch '\A[0-9a-f]{7,40}\z') {
@@ -238,7 +282,45 @@ $($opcodeList -join [Environment]::NewLine)
 }
 
 . (Join-Path $PSScriptRoot 'StatusMap.ps1')
-$statusMap = New-LoamStatusMap -Groups $groups -ShaderGroups $shaderGroups
+$sourceMap = New-LoamReferenceMap -Groups $groups -ShaderGroups $shaderGroups
+$statusMap = $sourceMap
+$sourceMapAlt = "Source map with $registryTotal resolver entries and $shaderTotal named GFX10 opcode slots out of $shaderSlots"
+$statusHeading = 'Source status map'
+$statusAlt = $sourceMapAlt
+$roadmapHtml = ''
+$sourceHtml = ''
+if ($roadmapTracks.Count) {
+    $statusMap = New-LoamRoadmap -Tracks $roadmapTracks -States $roadmapStates
+    $statusHeading = 'Playability roadmap'
+    $statusAlt = "Loam playability roadmap with $($roadmapById.Count) tiles. The evidence and completion checks follow below."
+    $sections = foreach ($track in $roadmapTracks) {
+        $cards = foreach ($tile in $track.Tiles) {
+            @"
+        <article id="task-$($tile.Id)" class="task">
+          <h4>$(Encode-Html $tile.Label)</h4>
+          <p class="task-state">$($tile.Status)</p>
+          <p>$(Encode-Html $tile.Evidence)</p>
+          <p><strong>Completion check.</strong> $(Encode-Html $tile.DoneWhen)</p>
+        </article>
+"@
+        }
+        @"
+      <h3>$(Encode-Html $track.Label)</h3>
+      <div class="task-grid">
+$($cards -join [Environment]::NewLine)
+      </div>
+"@
+    }
+    $roadmapHtml = @"
+    <p>The target is sustained offline play at $targetFps FPS ($targetMs ms per frame) on the $hardware. Tile states reflect the evidence below.</p>
+    <div id="roadmap-details">
+$($sections -join [Environment]::NewLine)
+    </div>
+"@
+    $sourceHtml = @"
+    <p><a href="source-map.svg"><img class="status-map" src="source-map.svg" alt="$sourceMapAlt"></a></p>
+"@
+}
 
 $html = @"
 <!doctype html>
@@ -287,6 +369,12 @@ $html = @"
     td { font-variant-numeric: tabular-nums; }
     code { font-size: .95em; }
     .status-map { display: block; width: 100%; height: auto; }
+    .task-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,21rem),1fr)); gap: .7rem; }
+    .task { padding: .8rem 1rem; background: var(--surface); border: 1px solid var(--line); }
+    .task:target { outline: 2px solid var(--accent); }
+    .task h4 { margin: 0; }
+    .task-state { color: var(--muted); font-size: .87rem; font-weight: 600; }
+    .task p:last-child { margin-bottom: 0; }
     details { border-bottom: 1px solid var(--line); }
     summary { cursor: pointer; padding: .45rem 0; }
     .opcode-list { columns: 18rem; list-style: none; margin: 0 0 .75rem; padding: 0; }
@@ -299,6 +387,8 @@ $html = @"
     <h1>$projectName progress</h1>
     <p>Opening prison sequence on the $hardware.</p>
     <nav aria-label="Project links">
+      <a href="#status-map">Status</a>
+      <a href="#shader-opcodes">Shader reference</a>
       <a href="$repositoryUrl">Source repository</a>
       <a href="$changelogUrl">Changelog</a>
       <a href="progress.json">Raw JSON</a>
@@ -306,12 +396,14 @@ $html = @"
     </nav>
   </header>
   <section aria-labelledby="status-map">
-    <h2 id="status-map">Source status map</h2>
-    <p><a href="status-map.svg"><img class="status-map" src="status-map.svg" alt="Loam status map with $registryTotal resolver entries and $shaderTotal named GFX10 opcode slots out of $shaderSlots"></a></p>
+    <h2 id="status-map">$statusHeading</h2>
+    <p><a href="status-map.svg"><img class="status-map" src="status-map.svg" alt="$statusAlt"></a></p>
+$roadmapHtml
   </section>
 
   <section aria-labelledby="shader-opcodes">
     <h2 id="shader-opcodes">GFX10 shader opcodes</h2>
+$sourceHtml
     <p>Green cells mark opcodes with names returned by Loam's decoder. Gray cells include reserved values. The VOP3 groups include the 64-bit encodings of VOPC, VOP2, and VOP1.</p>
     <p>Separate DXIL output tests cover <a href="$repositoryUrl/blob/main/crates/victory-shader/src/emit/valu_tests.rs"><code>v_lerp_u8</code></a> and <a href="$repositoryUrl/blob/main/crates/victory-shader/src/emit/mod.rs">representative SMEM scalar buffer loads</a>. The map measures instruction recognition.</p>
 $($shaderDetails -join [Environment]::NewLine)
@@ -392,6 +484,7 @@ $registryBadge = New-ProgressBadge 'libraries*' "$registryTotal entries" 75 75 '
 $shaderBadge = New-ProgressBadge 'GFX10 opcode names' "$shaderTotal/$shaderSlots" 131 76 '#4c1'
 $aluBadge = New-ProgressBadge 'GFX10 ALU slots' $shaderPanels['alu'] 112 70 '#4c1'
 $memoryBadge = New-ProgressBadge 'GFX10 memory and export' $shaderPanels['memory'] 165 70 '#4c1'
+$targetBadge = New-ProgressBadge 'gameplay target' "$targetFps FPS" 108 58 '#345986'
 
 $outputPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputDirectory)
 if ((Join-Path $outputPath 'progress.json') -eq $dataFile) {
@@ -407,3 +500,15 @@ if ((Join-Path $outputPath 'progress.json') -eq $dataFile) {
 [IO.File]::WriteAllText((Join-Path $outputPath 'gfx10-alu.svg'), $aluBadge)
 [IO.File]::WriteAllText((Join-Path $outputPath 'gfx10-memory.svg'), $memoryBadge)
 [IO.File]::WriteAllText((Join-Path $outputPath 'status-map.svg'), $statusMap)
+[IO.File]::WriteAllText((Join-Path $outputPath 'source-map.svg'), $sourceMap)
+[IO.File]::WriteAllText((Join-Path $outputPath 'fps-target.svg'), $targetBadge)
+foreach ($id in @('mission-completion', 'windows-memory')) {
+    $tile = $null
+    $trackBadge = if ($roadmapById.TryGetValue($id, [ref]$tile)) {
+        New-ProgressBadge $tile.Label $tile.Status 137 74 $roadmapStates[$tile.Status].Badge
+    } else {
+        $label = if ($id -eq 'mission-completion') { 'Complete the mission' } else { 'Windows memory' }
+        New-ProgressBadge $label 'No status' 137 74 $roadmapStates.Pending.Badge
+    }
+    [IO.File]::WriteAllText((Join-Path $outputPath "$id.svg"), $trackBadge)
+}

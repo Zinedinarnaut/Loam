@@ -1,6 +1,60 @@
 #Requires -Version 7.0
 
-function New-LoamStatusMap {
+function New-LoamRoadmap {
+    param([object[]]$Tracks, [System.Collections.IDictionary]$States)
+
+    $width = 1000
+    $margin = 10
+    $gap = 5
+    $tileHeight = 49
+    $top = 8
+    $content = [Collections.Generic.List[string]]::new()
+
+    foreach ($track in $Tracks) {
+        $heading = [Net.WebUtility]::HtmlEncode($track.Label)
+        $content.Add("  <text x='$margin' y='$($top + 17)' class='track'>$heading</text>")
+        $top += 25
+        $columns = [Math]::Min(5, $track.Tiles.Count)
+        $tileWidth = [int][Math]::Floor(($width - 2 * $margin - ($columns - 1) * $gap) / $columns)
+        for ($index = 0; $index -lt $track.Tiles.Count; $index++) {
+            $tile = $track.Tiles[$index]
+            $x = $margin + ($index % $columns) * ($tileWidth + $gap)
+            $y = $top + [int][Math]::Floor($index / $columns) * ($tileHeight + $gap)
+            $name = [Net.WebUtility]::HtmlEncode($tile.Label)
+            $state = $States[$tile.Status]
+            $status = $tile.Status
+            $size = [Math]::Min(16, [Math]::Floor(($tileWidth - 24) / ($tile.Label.Length * 0.62)))
+            $content.Add(@"
+  <a href="progress.html#task-$($tile.Id)" aria-label="$name ($status)">
+    <rect x="$x" y="$y" width="$tileWidth" height="$tileHeight" fill="$($state.Surface)" stroke="$($state.Stroke)"/>
+    <rect x="$x" y="$y" width="3" height="$tileHeight" fill="$($state.Accent)"/>
+    <text x="$($x + 11)" y="$($y + 20)" font-size="$size" class="label">$name</text>
+    <text x="$($x + 11)" y="$($y + 38)" fill="$($state.Accent)" class="state">$status</text>
+  </a>
+"@)
+        }
+        $top += [int][Math]::Ceiling($track.Tiles.Count / $columns) * ($tileHeight + $gap) + 8
+    }
+    $height = $top + 2
+
+    return @"
+<svg xmlns="http://www.w3.org/2000/svg" width="$width" height="$height" viewBox="0 0 $width $height" role="img" aria-labelledby="title description">
+  <title id="title">Loam playability roadmap</title>
+  <desc id="description">Status tiles for stability, performance, rendering, the opening mission, controls, audio and saves.</desc>
+  <style>
+    text { font-family: Arial, sans-serif; }
+    .track { fill: #f0f6fc; font-size: 17px; font-weight: 700; }
+    .label { fill: #f0f6fc; font-weight: 700; }
+    .state { font-size: 12px; }
+    a:hover rect:first-child, a:focus rect:first-child { stroke: #f0f6fc; }
+  </style>
+  <rect width="$width" height="$height" fill="#0d1117"/>
+$($content -join [Environment]::NewLine)
+</svg>
+"@
+}
+
+function New-LoamReferenceMap {
     <#
     .SYNOPSIS
     Renders resolver registrations and named opcode slots as two-color treemaps.

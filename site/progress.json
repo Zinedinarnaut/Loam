@@ -9,6 +9,147 @@
     "fps": 33,
     "frameMs": 30.3
   },
+  "roadmap": [
+    {
+      "label": "Stability and performance",
+      "tiles": [
+        {
+          "id": "windows-memory",
+          "label": "Windows memory",
+          "status": "Blocked",
+          "evidence": "The 1.5 GiB GPU upload run reached the Windows memory reserve about 35 seconds after movement began. The 2 GiB run reached the reserve during scene loading.",
+          "doneWhen": "Load the checkpoint and move through the mission while staying above the existing Windows memory reserve."
+        },
+        {
+          "id": "asset-streaming",
+          "label": "Asset streaming",
+          "status": "Partial",
+          "evidence": "DirectStorage opened files and the first room rendered. Streaming across room transitions still needs verification.",
+          "doneWhen": "Load newly visited areas with their required assets while keeping texture uploads and staging within budget."
+        },
+        {
+          "id": "sustained-gameplay",
+          "label": "Sustained gameplay",
+          "status": "Unverified",
+          "evidence": "The opening room rendered after movement. Both GPU upload trials reached the Windows memory reserve and recorded zero display-driver resets.",
+          "doneWhen": "Repeat a moving gameplay run through successive checkpoints without a crash, driver reset, or memory stop."
+        },
+        {
+          "id": "frame-rate",
+          "label": "Frame rate",
+          "status": "Pending",
+          "evidence": "The RTX 5060 Ti measured 5.15 FPS and 194.36 ms per frame in a stationary 60-second sample. Submission preparation and GPU work each averaged about 80 ms in diagnostics from that window.",
+          "doneWhen": "Reduce submission, GPU, and copy-back time, then meet the published FPS target during sustained movement on the RTX 5060 Ti. Report mean, median, and 95th-percentile frame times."
+        }
+      ]
+    },
+    {
+      "label": "Rendering",
+      "tiles": [
+        {
+          "id": "rtx-rendering",
+          "label": "RTX 5060 Ti",
+          "status": "Verified",
+          "evidence": "The RTX 5060 Ti rendered the opening room and passed the GPU upload readback check.",
+          "doneWhen": "Confirm the physical RTX adapter is doing the rendering and display the opening room."
+        },
+        {
+          "id": "d3d12-pipelines",
+          "label": "D3D12 pipelines",
+          "status": "Partial",
+          "evidence": "The first room rendered. Stationary diagnostics reported about 270 skipped draws per frame for missing host pipelines.",
+          "doneWhen": "Create the pipelines needed by the opening mission and verify its direct and indirect draws during movement."
+        },
+        {
+          "id": "shader-translation",
+          "label": "VOP3 and SMEM",
+          "status": "Partial",
+          "evidence": "VOP3 byte averaging passed RTX and WARP tests. Synthetic SMEM scalar-buffer load checks also pass.",
+          "doneWhen": "Identify the shader forms behind failed mission pipelines and verify their DXIL outputs, including wave and resource behavior."
+        },
+        {
+          "id": "textures-and-depth",
+          "label": "Textures and depth",
+          "status": "Partial",
+          "evidence": "Opening-room geometry is visible. Visual glitches remain.",
+          "doneWhen": "Check texture placement, depth, and final composition while changing camera views and moving between rooms."
+        },
+        {
+          "id": "lighting-and-shadows",
+          "label": "Lighting and shadows",
+          "status": "Unverified",
+          "evidence": "The ray-tracing path has partial builder and shader translation. End-to-end lighting is still unverified.",
+          "doneWhen": "Verify that the mission's lighting and shadows render correctly as the camera and scene change."
+        }
+      ]
+    },
+    {
+      "label": "Opening mission",
+      "tiles": [
+        {
+          "id": "boot-and-menu",
+          "label": "Boot and menu",
+          "status": "Verified",
+          "evidence": "An offline Windows run reached the main menu using the Series S profile.",
+          "doneWhen": "Launch the title and reach its main menu offline."
+        },
+        {
+          "id": "opening-checkpoint",
+          "label": "Opening checkpoint",
+          "status": "Verified",
+          "evidence": "The offline Series S profile loaded the prison checkpoint and rendered its 3D scene.",
+          "doneWhen": "Load the opening checkpoint and see the room."
+        },
+        {
+          "id": "first-movement",
+          "label": "First movement",
+          "status": "Verified",
+          "evidence": "Three scripted keyboard inputs moved the character away from the barred window and into the room.",
+          "doneWhen": "Observe the character respond to movement and the scene continue rendering."
+        },
+        {
+          "id": "mission-completion",
+          "label": "Complete the mission",
+          "status": "Blocked",
+          "evidence": "The memory reserve stopped the test after the first movement sequence.",
+          "doneWhen": "Play from the opening checkpoint through the mission and reach the following checkpoint."
+        }
+      ]
+    },
+    {
+      "label": "Controls, audio and saves",
+      "tiles": [
+        {
+          "id": "keyboard-and-mouse",
+          "label": "Keyboard and mouse",
+          "status": "Partial",
+          "evidence": "Scripted keyboard movement works. The GameInput mouse path still lacks an implementation.",
+          "doneWhen": "Verify movement, camera and aim, interactions, and menu navigation with a physical keyboard and mouse."
+        },
+        {
+          "id": "dualsense",
+          "label": "DualSense",
+          "status": "Unverified",
+          "evidence": "The Windows path reads XInput. A physical PS5 controller has yet to be verified with Loam.",
+          "doneWhen": "Use a connected DualSense to walk, look, interact, and navigate menus, and record the Windows input path used."
+        },
+        {
+          "id": "audio",
+          "label": "Game audio",
+          "status": "Unverified",
+          "evidence": "Loam has XMA decode and WASAPI output paths. In-game dialogue, effects, and music have yet to be verified.",
+          "doneWhen": "Hear distinct dialogue, effects, and music during the mission and through scene transitions."
+        },
+        {
+          "id": "save-and-resume",
+          "label": "Save and resume",
+          "status": "Unverified",
+          "evidence": "Local XGameSave persistence passes synthetic tests. A checkpoint created by the title has yet to be verified across restarts.",
+          "doneWhen": "Create a checkpoint in-game, exit, relaunch, and resume from that checkpoint."
+        }
+      ]
+    }
+  ],
   "current": {
     "revision": "780a22f",
     "hardware": "NVIDIA GeForce RTX 5060 Ti",

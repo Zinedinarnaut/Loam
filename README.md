@@ -8,17 +8,13 @@ Loam is a Windows compatibility layer for Xbox Series software. It runs the game
 
 ## Status
 
-[![System libraries](https://zinedinarnaut.github.io/Loam/registry.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html#registry) [![Named GFX10 ALU opcode slots](https://zinedinarnaut.github.io/Loam/gfx10-alu.svg?v=3)](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) [![Named GFX10 memory and export opcode slots](https://zinedinarnaut.github.io/Loam/gfx10-memory.svg?v=3)](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) [![Opening scene benchmark](https://zinedinarnaut.github.io/Loam/fps.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html#benchmark)
+[![Windows memory status](https://zinedinarnaut.github.io/Loam/windows-memory.svg)](https://zinedinarnaut.github.io/Loam/progress.html#task-windows-memory) [![Opening mission status](https://zinedinarnaut.github.io/Loam/mission-completion.svg)](https://zinedinarnaut.github.io/Loam/progress.html#task-mission-completion) [![Gameplay FPS target](https://zinedinarnaut.github.io/Loam/fps-target.svg)](https://zinedinarnaut.github.io/Loam/progress.html#task-frame-rate)
 
-[![Progress map](https://zinedinarnaut.github.io/Loam/status-map.svg?v=3)](https://zinedinarnaut.github.io/Loam/progress.html)
+[![Loam playability roadmap](https://zinedinarnaut.github.io/Loam/status-map.svg?v=4)](https://zinedinarnaut.github.io/Loam/progress.html#status-map)
 
-[Shader opcode details](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) · [Progress history](https://zinedinarnaut.github.io/Loam/progress.html#earlier)
+The menu, opening checkpoint, and scripted movement are verified. Windows memory is the first blocker to finishing the mission. The fastest measured stationary sample was 5.15 FPS on an RTX 5060 Ti. The goal is sustained gameplay at 33 FPS.
 
-<sub>* System libraries count entries in the [Windows resolver registry](crates/victory-hle/src/modules/mod.rs). Green shader cells are named by the [GFX10 decoder](crates/victory-shader/src/gfx10/mod.rs). Gray cells include reserved values. Each 64-bit alias in VOP3 has its own cell. DXIL translation is tested separately.</sub>
-
-The opening checkpoint loads, and scripted keyboard input moved the player away from the barred window and into the room. Sustained gameplay still needs verification. Windows reached its memory reserve in the follow-up runs.
-
-Loam [recompiles GFX10 shaders](crates/victory-shader/src/lib.rs) for Direct3D 12.
+[Tile evidence and completion checks](https://zinedinarnaut.github.io/Loam/progress.html#roadmap-details) · [Shader opcode reference](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) · [Windows API registry](https://zinedinarnaut.github.io/Loam/progress.html#registry)
 
 ## Benchmarks
 

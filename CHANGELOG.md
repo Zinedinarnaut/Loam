@@ -17,3 +17,4 @@
 - Switched the shader status map to synthetic decoder probes. It now shows the 64-bit VOPC, VOP2, and VOP1 forms in VOP3 and lists recognized opcodes by family.
 - Added DXIL translation for the VOP3 packed-byte average instruction, `v_lerp_u8`. Verified independent byte rounding on an RTX 5060 Ti and WARP.
 - Fixed disassembly for the SMEM instructions `s_memtime`, `s_memrealtime`, and `s_get_waveid_in_workgroup`. They now print just their destination register.
+- Replaced the headline status tiles with the GTA VI playability roadmap. Each tile records the evidence and its completion check. Opcode and resolver maps remain available in the source reference.
