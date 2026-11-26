@@ -12,9 +12,13 @@ Loam is a Windows compatibility layer for Xbox Series software. It runs the game
 
 [![Progress map](https://zinedinarnaut.github.io/Loam/status-map.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html)
 
-[Progress report](https://zinedinarnaut.github.io/Loam/progress.html)
+[Progress history](https://zinedinarnaut.github.io/Loam/progress.html#earlier)
 
-<sub>* System libraries count registered resolver entries. Gray shader cells represent unnamed opcode values, including reserved values.</sub>
+<sub>* System libraries count entries in the [Windows resolver registry](crates/victory-hle/src/modules/mod.rs). Green shader cells have names in the [GFX10 opcode tables](crates/victory-shader/src/gfx10/opcodes.rs). Gray cells include reserved values.</sub>
+
+The opening checkpoint loads. Player movement still needs verification.
+
+Loam [recompiles GFX10 shaders](crates/victory-shader/src/lib.rs) for Direct3D 12.
 
 ## Build and run
 
