@@ -113,8 +113,9 @@ impl<F: Fn(&[u8]) -> Result<HostShader, String> + Send + Sync> Converter for Tra
         "shader.dxil"
     }
     fn version(&self) -> u32 {
-        // The build fingerprint in the input does the versioning.
-        1
+        // This version names the record layout. The build fingerprint also
+        // invalidates translations when the emitter or its settings change.
+        2
     }
     fn convert(&self, input: &[u8]) -> anyhow::Result<Vec<u8>> {
         self.ran.store(true, Ordering::Relaxed);
@@ -155,7 +156,7 @@ fn cached(
     (converter.translate)(container)
 }
 
-const MAGIC: &[u8; 4] = b"VSH1";
+const MAGIC: &[u8; 4] = b"VSH2";
 const STAGES: [HwStage; 8] = [
     HwStage::Ls,
     HwStage::Hs,
@@ -197,6 +198,7 @@ fn encode(s: &HostShader) -> Vec<u8> {
     let word = |out: &mut Vec<u8>, v: u32| out.extend(v.to_le_bytes());
     let stage = STAGES.iter().position(|&x| x == s.stage).unwrap_or(0) as u32;
     word(&mut out, stage);
+    word(&mut out, u32::from(s.dispatch_x_multiplier));
     word(&mut out, s.dxil.len() as u32);
     out.extend(&s.dxil);
     word(&mut out, s.user_data.len() as u32);
@@ -270,6 +272,11 @@ fn decode(bytes: &[u8]) -> Option<HostShader> {
         return None;
     }
     let stage = *STAGES.get(r.word()? as usize)?;
+    let dispatch_x_multiplier = match (stage, r.word()?) {
+        (_, 1) => 1,
+        (HwStage::Cs, 2) => 2,
+        _ => return None,
+    };
     let dxil = r.list()?;
     let n = r.word()? as usize;
     let mut user_data = Vec::with_capacity(n.min(256));
@@ -316,6 +323,7 @@ fn decode(bytes: &[u8]) -> Option<HostShader> {
     }
     r.0.is_empty().then_some(HostShader {
         stage,
+        dispatch_x_multiplier,
         dxil,
         user_data,
         samplers,
@@ -333,6 +341,7 @@ mod tests {
 
     fn shader() -> HostShader {
         HostShader {
+            dispatch_x_multiplier: 1,
             stage: HwStage::Ps,
             dxil: b"DXBC and the rest".to_vec(),
             user_data: vec![UserData {
@@ -362,6 +371,32 @@ mod tests {
     }
 
     #[test]
+    fn cache_preserves_dispatch_geometry_and_rejects_invalid_encodings() {
+        let ordinary = shader();
+        assert_eq!(decode(&encode(&ordinary)), Some(ordinary.clone()));
+        let invalid_graphics = HostShader {
+            dispatch_x_multiplier: 2,
+            ..ordinary.clone()
+        };
+        assert!(decode(&encode(&invalid_graphics)).is_none());
+
+        let separate = HostShader {
+            stage: HwStage::Cs,
+            dispatch_x_multiplier: 2,
+            ..ordinary
+        };
+        let mut encoded = encode(&separate);
+        assert_eq!(decode(&encoded), Some(separate));
+        encoded[..4].copy_from_slice(b"VSH1");
+        assert!(decode(&encoded).is_none());
+        encoded[..4].copy_from_slice(MAGIC);
+        for invalid in [0u32, 3, 256, u32::MAX] {
+            encoded[8..12].copy_from_slice(&invalid.to_le_bytes());
+            assert!(decode(&encoded).is_none());
+        }
+    }
+
+    #[test]
     fn translations_come_back_from_the_cache() {
         let dir = tempfile::tempdir().unwrap();
         let cache = Cache::open(dir.path()).unwrap();
@@ -382,7 +417,7 @@ mod tests {
 
         // A damaged entry is a miss, translated and stored again.
         for e in walk(dir.path()) {
-            std::fs::write(e, b"VSH1 broken").unwrap();
+            std::fs::write(e, b"VSH2 broken").unwrap();
         }
         assert_eq!(cached(&cache, &build, container, translate), Ok(shader()));
         assert_eq!(runs.load(Ordering::Relaxed), 3);

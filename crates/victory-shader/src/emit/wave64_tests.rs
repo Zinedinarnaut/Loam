@@ -123,6 +123,7 @@ fn lowered_on(
     lower::TEST_HOST_WAVE.set(was);
     let lowered = lowered?;
     Ok(HostShader {
+        dispatch_x_multiplier: lowered.dispatch_x_multiplier,
         stage: HwStage::Cs,
         dxil: lowered.dxil,
         user_data: lowered.user_data,
@@ -456,6 +457,94 @@ fn wave_wide_rejects_loop_counters_that_can_split_the_group() {
         0xBF8A_0000, // s_barrier inside the branch
         0xBEFE_040C, // s_mov_b64 exec, s[12:13]
     ]));
+}
+
+#[test]
+fn separate_physical_groups_restore_logical_group_and_thread_indices() {
+    let mut words = vec![
+        0x2C06_0086, // v_lshrrev_b32 v3, 6, v0
+        0x3406_0682, // v_lshlrev_b32 v3, 2, v3
+        0x7E08_0206, // v_mov_b32 v4, s6 (logical group X)
+        0x3408_0883, // v_lshlrev_b32 v4, 3, v4
+        0x4A06_0903, // v_add_nc_u32 v3, v3, v4
+        0x7E0A_0281, // v_mov_b32 v5, 1
+        0x2C0C_0081, // v_lshrrev_b32 v6, 1, v0
+        0x340E_0B06, // v_lshlrev_b32 v7, v6, v5
+        0x7D88_0000, // v_cmp_gt_u32 vcc, s0, v0
+        0xBE8C_246A, // s_and_saveexec_b64 s[12:13], vcc
+        0xBF88_0017, // s_cbranch_execz to the EXEC restore
+    ];
+    words.extend_from_slice(&super::wave::WAVE_OR_V7_TO_S7);
+    words.extend_from_slice(&[
+        0x7E00_0207, // v_mov_b32 v0, s7
+        0xE070_1000,
+        0x8002_0003, // buffer_store_dword v0, v3, s[8:11], 0 offen
+        0xBEFE_040C, // s_mov_b64 exec, s[12:13]
+    ]);
+    let mut native = native_of(&words, true, 128);
+    let StageIo::Cs(cs) = &mut native.io else { unreachable!() };
+    cs.rsrc2 = (6 << 1) | (1 << 7); // six user SGPRs, then group X in s6
+    let p = ir::build(&native.code, native.wave64, native.vgprs).expect("ir::build");
+    let c = crate::dxbc::Container { digest: [0; 16], version: (1, 0), parts: Vec::new() };
+    let was = lower::TEST_HOST_WAVE.replace(Some(32));
+    let result = lower::with_partitioned_waves(|| super::widen(&c, &native, &p, false, true));
+    lower::TEST_HOST_WAVE.set(was);
+    let (shader, wave) = result.expect("one physical group for each logical wave");
+    assert_eq!(wave, Some(32));
+    assert_eq!(shader.dispatch_x_multiplier, 2);
+    let mut copy = shader.dxil.clone();
+    if let Ok(mut validator) = validator::Validator::load(validator::Validator::default_path().as_deref()) {
+        validator.validate(&mut copy).expect("separate-group DXIL");
+    }
+    let _one = super::valu_tests::ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
+    let Ok(host) = Host::new(false) else { eprintln!("no D3D12 hardware device; not run"); return };
+    let Ok((root, pso)) = host.compute_pipeline(&shader) else {
+        eprintln!("hardware did not accept the separate-workgroup pipeline; not run");
+        return;
+    };
+    let mut ud = vec![0u32; shader.user_data_dwords().max(1) as usize];
+    for u in &shader.user_data {
+        if let (RootType::Constants, 0, 0) = (u.root, u.slot, u.dword) {
+            ud[u.index as usize] = 96;
+        }
+    }
+    let out = host.dispatch(&root, &pso, &Dispatch {
+        roots: vec![(0, Root::Constants(ud))],
+        views: &[View::RawUav(4)],
+        samplers: &[],
+        groups: [2 * u32::from(shader.dispatch_x_multiplier), 1, 1],
+    }).expect("hardware dispatch");
+    assert_eq!(&out[0][..4], &[u32::MAX, 0xFFFF, u32::MAX, 0xFFFF]);
+    eprintln!("separate host groups preserved guest group and thread IDs on hardware");
+}
+
+#[test]
+fn a_conditional_predecessor_keeps_a_latch_tail_from_aborting_the_wave() {
+    let mut native = program(0xBF88_0000);
+    let StageIo::Cs(cs) = &mut native.io else { unreachable!() };
+    cs.threads = [128, 1, 1];
+    let loop_words: [u32; 6] = [
+        0xBF80_0000, // s_nop 0 (loop preheader)
+        0x8081_8101, // s_sub_u32 s1, s1, 1 (loop header)
+        0xBF06_8001, // s_cmp_eq_u32 s1, 0
+        0xBF85_0002, // s_cbranch_scc1 to s_endpgm
+        0xBE82_0300, // s_mov_b32 s2, s0 (latch tail)
+        0xBF82_FFFB, // s_branch back to the header
+    ];
+    let end = native.code.len() - 4;
+    native.code.splice(end..end, loop_words.into_iter().flat_map(u32::to_le_bytes));
+    let p = ir::build(&native.code, native.wave64, native.vgprs).expect("ir::build");
+    let branch = p.blocks.iter().position(|b| b.insts.last().is_some_and(|i| i.name() == "s_cbranch_execz")).expect("the branch to widen");
+    let wide = HashSet::from([branch]);
+    let st = structure::structure_wide(&p, &wide).expect("structure");
+    assert!(!lower::wave_wide_can_sync(&p, &st));
+    let mut shader = lower::with_partitioned_waves(|| {
+        assert!(lower::wave_wide_can_sync(&p, &st));
+        lowered(&native, &p, &wide).expect("lowered conditional watchdog")
+    });
+    if let Ok(mut v) = validator::Validator::load(validator::Validator::default_path().as_deref()) {
+        v.validate(&mut shader.dxil).expect("DXIL validation failed");
+    }
 }
 
 /// Runs `shader` on the hardware device with the root constants `s0`, `s1` and gives dword 0

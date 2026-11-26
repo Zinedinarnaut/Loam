@@ -26,4 +26,6 @@
 - Listed the four shader entry names tied to the verified RTX failures in the README status grid.
 - Enabled wave32 translation for a single 64-lane compute wave when Loam can verify that the widened branches synchronize safely. The particle visibility shader passed DXIL validation and created its D3D12 pipeline on an RTX 5060 Ti in a standalone probe and a fresh Loam boot, where the game also bound the pipeline.
 - Fixed descriptor tracking for memory accesses guarded by EXEC. The alpha prefilter now passes DXIL validation and creates its D3D12 pipeline on the RTX in a standalone probe and a fresh Loam boot.
-- Kept verified shader checks in the README grid and gave them a green marker. Particle visibility and alpha prefilter passed their pipeline checks. Defrag and cascading shadows still have open checks.
+- Kept verified shader checks in the README grid and gave them a green marker. Particle visibility and alpha prefilter passed their pipeline checks.
+- Added an experimental Wave32 path that splits a guest workgroup into two host workgroups while preserving guest IDs. Direct and indirect compute dispatches expand X for this path. Enable it for a selected DXBC container with `VICTORY_VIRTUAL_WAVES=separate-groups` and `VICTORY_VIRTUAL_WAVES_DIGEST` set to the container's digest in hex.
+- Validated and dispatched the cascading-shadow pipeline in the opening scene on an RTX 5060 Ti. The prison yard rendered with visual artifacts. Defrag remains open.

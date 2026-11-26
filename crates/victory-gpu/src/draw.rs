@@ -2245,6 +2245,16 @@ impl State {
             once!("a dispatch with a graphics pipeline");
             return;
         }
+        let host_x = if p.dispatch_x_multiplier == 2 {
+            if x > 32767 {
+                once!(x, "dispatch X cannot be doubled within the D3D12 group limit");
+                DROPPED.fetch_add(1, Ordering::Relaxed);
+                return;
+            }
+            x * 2
+        } else {
+            x
+        };
         if !self.bind(list, p, true) {
             DROPPED.fetch_add(1, Ordering::Relaxed);
             // A stage of the structure builder that cannot be bound is a
@@ -2255,9 +2265,9 @@ impl State {
             return;
         }
         #[cfg(feature = "diagnostics")]
-        list.note_op(|| self.op_text(format!("dispatch {x}x{y}x{z}"), true));
+        list.note_op(|| self.op_text(format!("dispatch {host_x}x{y}x{z}"), true));
         // SAFETY: an open list with everything set.
-        unsafe { list.list.Dispatch(x, y, z) };
+        unsafe { list.list.Dispatch(host_x, y, z) };
         DISPATCHED.fetch_add(1, Ordering::Relaxed);
     }
 
@@ -3304,6 +3314,8 @@ impl State {
                 // whose unfilled slots must not spend the list's budget.
                 let bounded = if windowed && records > 1 {
                     crate::indirect::bound_ahead(list, (&args.buffer, offset), (kind, step, records))
+                } else if kind == DISPATCH && p.dispatch_x_multiplier == 2 {
+                    crate::indirect::bound_dispatch_x2(list, (&args.buffer, offset), count_arg, (step, records))
                 } else {
                     crate::indirect::bound(list, (&args.buffer, offset), count_arg, (kind, step, records))
                 };

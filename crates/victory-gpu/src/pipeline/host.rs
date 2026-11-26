@@ -303,6 +303,8 @@ impl Stage {
 pub(crate) struct HostPipeline {
     /// A compute pipeline (else graphics).
     pub(crate) compute: bool,
+    /// Host compute groups along X per guest workgroup (1 for graphics).
+    pub(crate) dispatch_x_multiplier: u8,
     /// A mesh pipeline (graphics without vertex input).
     pub(crate) mesh: bool,
     pub(crate) pso: ID3D12PipelineState,
@@ -518,14 +520,18 @@ impl HostPipeline {
                 },
             )
         };
-        if compute.is_some() {
+        if let Some(cs) = compute {
+            let dispatch_x_multiplier = cs.translated()?.dispatch_x_multiplier;
             let desc = D3D12_COMPUTE_PIPELINE_STATE_DESC {
                 // SAFETY: a borrowed pointer the description never releases.
                 pRootSignature: unsafe { std::mem::transmute_copy(&root) },
                 CS: code(0),
                 ..Default::default()
             };
-            let name = super::library::name("compute", &root_blob, &[&code_bytes(&code(0))], "");
+            // Separate-group bytecode and its dispatch geometry form one contract.
+            // Keep ordinary compute keys stable and give expanded dispatches their own key.
+            let state = if dispatch_x_multiplier == 1 { "" } else { "dispatch x2" };
+            let name = super::library::name("compute", &root_blob, &[&code_bytes(&code(0))], state);
             let made = super::library::pipeline(
                 &name,
                 // SAFETY: the description points at live data.
@@ -545,6 +551,7 @@ impl HostPipeline {
             crate::host::name(&pso, || format!("{shaders:?}"));
             return Some(HostPipeline {
                 compute: true,
+                dispatch_x_multiplier,
                 mesh: false,
                 pso,
                 root,
@@ -598,6 +605,7 @@ impl HostPipeline {
             crate::host::name(&pso, || format!("{shaders:?}"));
             return Some(HostPipeline {
                 compute: false,
+                dispatch_x_multiplier: 1,
                 mesh: true,
                 pso,
                 root,
@@ -714,6 +722,7 @@ impl HostPipeline {
         );
         Some(HostPipeline {
             compute: false,
+            dispatch_x_multiplier: 1,
             mesh: false,
             pso,
             root,

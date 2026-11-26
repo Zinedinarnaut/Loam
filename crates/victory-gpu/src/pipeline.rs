@@ -128,6 +128,8 @@ fn shader(stage: &'static str, bytes: &[u8]) -> Arc<Shader> {
 #[cfg(windows)]
 pub(crate) struct Translated {
     pub(crate) host: victory_shader::emit::HostShader,
+    /// Host compute groups along X per guest workgroup.
+    pub(crate) dispatch_x_multiplier: u8,
     pub(crate) used: Vec<victory_shader::UsedResource>,
     /// Whether the shader's code can store to buffer memory ([`stores`]);
     /// true when its code is not known.
@@ -200,7 +202,7 @@ fn translate(container: &[u8]) -> Result<Translated, String> {
         })
         .map(|p| p.used)
         .unwrap_or_default();
-    Ok(Translated { host, used, stores })
+    Ok(Translated { dispatch_x_multiplier: host.dispatch_x_multiplier, host, used, stores })
 }
 
 /// The compute pipelines of the console's ray-tracing structure builder

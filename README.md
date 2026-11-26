@@ -10,7 +10,7 @@ Loam is a Windows compatibility layer for Xbox Series software. It runs the game
 
 [![System libraries](https://zinedinarnaut.github.io/Loam/registry.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html#registry) [![Named GFX10 ALU opcode slots](https://zinedinarnaut.github.io/Loam/gfx10-alu.svg?v=3)](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) [![Named GFX10 memory and export opcode slots](https://zinedinarnaut.github.io/Loam/gfx10-memory.svg?v=3)](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) [![Opening scene benchmark](https://zinedinarnaut.github.io/Loam/fps.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html#benchmark)
 
-[![Progress map with VOP3, SMEM, and the four RTX shader checks](https://zinedinarnaut.github.io/Loam/status-map.svg?v=12)](https://zinedinarnaut.github.io/Loam/progress.html#status-map)
+[![Progress map with VOP3, SMEM, and the four RTX shader checks](https://zinedinarnaut.github.io/Loam/status-map.svg?v=13)](https://zinedinarnaut.github.io/Loam/progress.html#status-map)
 
 [Shader opcode details](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) · [Progress history](https://zinedinarnaut.github.io/Loam/progress.html#earlier)
 

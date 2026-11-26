@@ -13,6 +13,10 @@ use super::bitcode::{Attr, Bin, Cast, Rmw, Tag, Term, V, pred};
 use super::container::SigElement;
 use super::shader::{Shader, flags};
 use crate::ShaderError;
+mod loop_latches;
+
+use loop_latches::loop_latch_tails;
+
 use crate::gfx10::{Dpp, Fields, NULL, Operand};
 use crate::io::{Barycentric, Export, Input, Interp, Io, Target};
 use crate::ir::{EXEC, Exit, Inst, Program, Reg, Value};
@@ -59,6 +63,7 @@ pub(crate) struct Lowered {
     pub samplers: Vec<[u32; 4]>,
     /// The wave size the shader requires of the host, if any.
     pub wave_size: Option<u32>,
+    pub dispatch_x_multiplier: u8,
     /// Heap handles made with a non-uniform index.
     #[cfg(test)]
     pub nonuniform_handles: u32,
@@ -293,6 +298,11 @@ struct Lower<'a> {
     /// Loop headers' iteration counters (see [`LOOP_LIMIT`]): the phi by
     /// IR block, and its incoming (value, DXIL block) pairs.
     counters: HashMap<usize, (V, Vec<(V, usize)>)>,
+    /// The conditional predecessor that can leave each plain latch tail: by predecessor,
+    /// the tail and the header. The parent checks the limit before entering the tail.
+    latch_tails: HashMap<usize, (usize, usize)>,
+    /// The next iteration count from the predecessor, passed to the header by its latch tail.
+    latch_counts: HashMap<usize, V>,
     /// The block a loop stopped by [`LOOP_LIMIT`] leaves the program from.
     abort: Option<usize>,
 }
@@ -441,13 +451,21 @@ pub(super) fn wave_wide_can_sync(p: &Program, st: &Structured) -> bool {
     for (i, &b) in order.iter().enumerate() {
         rank[b] = i;
     }
+    let tails = if partitioned_waves() && !st.wide.is_empty() { loop_latch_tails(p, st, &rank) } else { HashMap::new() };
     let back = |from, to: usize| rank[to] <= rank[from];
     for b in order {
         if regions.iter().any(|(_, region)| region[b]) && p.blocks[b].insts.iter().any(|i| i.name() == "s_barrier") {
             return false;
         }
         match st.exits[b] {
-            LaneExit::Jump(to) if back(b, to) => return false,
+            LaneExit::Jump(to) if back(b, to) => {
+                let &[branch] = p.blocks[b].preds.as_slice() else { return false };
+                if tails.get(&branch) != Some(&(b, to))
+                    || regions.iter().any(|(d, region)| *d == branch || region[to] != region[b] || region[to] != region[branch])
+                {
+                    return false;
+                }
+            }
             LaneExit::Branch { taken, not_taken, .. } => {
                 let header = match (back(b, taken), back(b, not_taken)) {
                     (false, false) => continue,
@@ -986,8 +1004,22 @@ thread_local! {
     static NEEDS: std::cell::RefCell<Vec<usize>> = const { std::cell::RefCell::new(Vec::new()) };
     /// See [`with_local_waves`].
     static LOCAL_WAVES: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static PARTITIONED_WAVES: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     /// See [`with_local_waves_any`].
     static LOCAL_ANY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Lower each guest wave in a separate host workgroup. The caller must
+/// double dispatch X and rule out guest workgroup memory and group barriers.
+pub(super) fn with_partitioned_waves<R>(f: impl FnOnce() -> R) -> R {
+    let previous = PARTITIONED_WAVES.replace(true);
+    let result = f();
+    PARTITIONED_WAVES.set(previous);
+    result
+}
+
+pub(super) fn partitioned_waves() -> bool {
+    PARTITIONED_WAVES.get()
 }
 
 /// As [`with_local_waves`], with every other use of a lane mask as a number
@@ -1312,7 +1344,8 @@ impl<'a> Lower<'a> {
         // a console wave64 program in host waves of 32: the LDS dword of `wave_base`'s counter
         let mut halves: Option<u32> = None;
         if let StageIo::Cs(cs) = x.native.io {
-            s.threads = Some(cs.threads);
+            let host_threads = if partitioned_waves() { [64, 1, 1] } else { cs.threads };
+            s.threads = Some(host_threads);
             s.lds_dwords = cs.lds_bytes() / 4;
             // Code reading other lanes needs the console's wave size and
             // lane order; so do lane masks read as numbers, and LDS shared
@@ -1329,7 +1362,7 @@ impl<'a> Lower<'a> {
                 // (a branch the wave takes together asks the wave)
                 || !x.st.wide.is_empty();
             let mut wave = if x.native.wave64 { 64 } else { 32 };
-            let group = cs.threads.iter().product::<u32>();
+            let group = host_threads.iter().product::<u32>();
             let one_wave = group <= wave;
             // A host whose waves are at most 32 lanes (NVIDIA) refuses `WaveSize(64)`. A console
             // wave64 program whose cross-lane code stays inside 32-lane halves – DPP rows,
@@ -1627,6 +1660,8 @@ impl<'a> Lower<'a> {
             section_out: HashSet::new(),
             code_table: None,
             counters: HashMap::new(),
+            latch_tails: HashMap::new(),
+            latch_counts: HashMap::new(),
             abort: None,
         }
     }
@@ -2241,6 +2276,10 @@ impl<'a> Lower<'a> {
         for (n, &b) in order.iter().enumerate() {
             self.rpo[b] = n;
         }
+        let partitioned = partitioned_waves();
+        if partitioned && !self.x.st.wide.is_empty() {
+            self.latch_tails = loop_latch_tails(p, self.x.st, &self.rpo);
+        }
         for (n, &b) in order.iter().enumerate() {
             self.block[b] = Some(if n == 0 {
                 self.s.entry
@@ -2326,6 +2365,7 @@ impl<'a> Lower<'a> {
         let wave_size = self.s.wave_size;
         Ok(Lowered {
             wave_size,
+            dispatch_x_multiplier: if partitioned { 2 } else { 1 },
             cmp_samplers,
             root_cbvs,
             root_srvs,
@@ -2406,7 +2446,14 @@ impl<'a> Lower<'a> {
             // host's value can be.
             Input::FrontFace => (13, 0),
             Input::ThreadIdInGroup(c) => return self.thread_id(c),
-            Input::GroupId(c) => return self.compute_id("groupId.i32", 94, c),
+            Input::GroupId(c) => {
+                let physical = self.compute_id("groupId.i32", 94, c);
+                if let (0, true, Val::I32(x)) = (c, partitioned_waves(), physical) {
+                    let one = self.s.m.i32(1);
+                    return Val::I32(self.s.m.bin(self.s.entry, Bin::LShr, x, one));
+                }
+                return physical;
+            }
             Input::GroupInfo => return Val::Missing("the thread-group info SGPR"),
             Input::MeshGroup => {
                 let Val::I32(g) = self.compute_id("groupId.i32", 94, 0) else {
@@ -4147,11 +4194,20 @@ impl<'a> Lower<'a> {
         if !self.console_lanes {
             return self.compute_id("threadIdInGroup.i32", 95, c);
         }
-        let [x, y, _] = self.s.threads.expect("compute");
+        let StageIo::Cs(cs) = self.x.native.io else { unreachable!("compute thread ID") };
+        let [x, y, _] = cs.threads;
         let e = self.s.entry;
         let i32t = self.s.t.i32;
         if self.halves.is_some() {
-            let f = self.console_thread();
+            let mut f = self.console_thread();
+            if partitioned_waves() {
+                let Val::I32(group) = self.compute_id("groupId.i32", 94, 0) else { unreachable!() };
+                let one = self.s.m.i32(1);
+                let wave_size = self.s.m.i32(64);
+                let wave = self.s.m.bin(e, Bin::And, group, one);
+                let base = self.s.m.bin(e, Bin::Mul, wave, wave_size);
+                f = self.s.m.bin(e, Bin::Add, base, f);
+            }
             self.s.flags |= flags::WAVE_OPS;
             let (xk, yk, xy) = (self.s.m.i32(x), self.s.m.i32(y), self.s.m.i32(x * y));
             return Val::I32(match c {
@@ -11083,9 +11139,15 @@ impl<'a> Lower<'a> {
             .map_or(self.x.p.blocks[b].offset, |i| i.machine.offset);
         let term = match self.x.st.exits[b] {
             LaneExit::Jump(t) if self.counters.contains_key(&t) && self.rpo[t] <= self.rpo[b] => {
-                let ok = self.count_iteration(t, pred::IULT);
-                let abort = self.abort_block();
-                Term::CondBr(ok, self.block[t].expect("reachable"), abort)
+                let header = self.block[t].expect("reachable");
+                if let Some(next) = self.latch_counts.remove(&b) {
+                    self.counters.get_mut(&t).expect("header").1.push((next, self.cur));
+                    Term::Br(header)
+                } else {
+                    let ok = self.count_iteration(t, pred::IULT, None);
+                    let abort = self.abort_block();
+                    Term::CondBr(ok, header, abort)
+                }
             }
             LaneExit::Jump(t) => {
                 self.enter_loop(b, t, self.cur);
@@ -11120,11 +11182,19 @@ impl<'a> Lower<'a> {
                     |l: &Self, to: usize| l.counters.contains_key(&to) && l.rpo[to] <= l.rpo[b];
                 // (No `xor` of a compare: a loop exit testing one hung the
                 // AMD driver.)
-                let cond = if back(self, taken) {
-                    let ok = self.count_iteration(taken, pred::IULT);
+                let moved = self.latch_tails.get(&b).copied();
+                let guard = |l: &Self, to| {
+                    if back(l, to) {
+                        Some((to, None))
+                    } else {
+                        moved.filter(|&(tail, _)| tail == to).map(|(tail, header)| (header, Some(tail)))
+                    }
+                };
+                let cond = if let Some((header, tail)) = guard(self, taken) {
+                    let ok = self.count_iteration(header, pred::IULT, tail);
                     self.s.m.bin(self.cur, Bin::And, cond, ok)
-                } else if back(self, not_taken) {
-                    let stop = self.count_iteration(not_taken, pred::IUGE);
+                } else if let Some((header, tail)) = guard(self, not_taken) {
+                    let stop = self.count_iteration(header, pred::IUGE, tail);
                     self.s.m.bin(self.cur, Bin::Or, cond, stop)
                 } else {
                     cond
@@ -11173,7 +11243,7 @@ impl<'a> Lower<'a> {
     /// A back edge to header `to` (a back edge keeps its block, no
     /// critical-edge block): the count goes up; the result compares it with
     /// [`LOOP_LIMIT`] by `p` (below: go on; at or above: stop).
-    fn count_iteration(&mut self, to: usize, p: u8) -> V {
+    fn count_iteration(&mut self, to: usize, p: u8, tail: Option<usize>) -> V {
         let c = self.cur;
         let (phi, _) = self.counters[&to];
         let one = self.s.m.i32(1);
@@ -11198,11 +11268,11 @@ impl<'a> Lower<'a> {
             named => named,
         };
         let limit = self.s.m.i32(limit);
-        self.counters
-            .get_mut(&to)
-            .expect("header")
-            .1
-            .push((next, c));
+        if let Some(tail) = tail {
+            self.latch_counts.insert(tail, next);
+        } else {
+            self.counters.get_mut(&to).expect("header").1.push((next, c));
+        }
         let over = self.s.m.cmp(c, p, next, limit);
         self.s.m.tag(over, Tag::Counter);
         over

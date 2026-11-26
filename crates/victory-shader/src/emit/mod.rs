@@ -248,6 +248,8 @@ fn parse_loop_limit(value: Option<&str>) -> u32 {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HostShader {
     pub stage: HwStage,
+    /// Host workgroups along X per guest workgroup (1 for ordinary shaders).
+    pub dispatch_x_multiplier: u8,
     /// The DXIL container, hashed as D3D12 expects.
     pub dxil: Vec<u8>,
     /// The user-data dwords the shader reads.
@@ -458,6 +460,31 @@ pub fn emit(
                         if done(&again) {
                             return again.map(|(shader, _)| shader);
                         }
+                        let partitioned = std::env::var_os("VICTORY_VIRTUAL_WAVES").is_some_and(|v| v == "separate-groups");
+                        let digest = partitioned.then(|| c.digest.iter().map(|b| format!("{b:02x}")).collect::<String>());
+                        let selected = std::env::var("VICTORY_VIRTUAL_WAVES_DIGEST").ok();
+                        if partitioned
+                            && c.digest.iter().any(|&b| b != 0)
+                            && selected.as_ref().zip(digest.as_ref()).is_some_and(|(wanted, actual)| actual.eq_ignore_ascii_case(wanted))
+                            && group_sync() != 0
+                            && let crate::native::StageIo::Cs(cs) = native.io
+                            && cs.threads.iter().product::<u32>() == 128
+                            && cs.lds_bytes() == 0
+                            && base.blocks.iter().flat_map(|b| &b.insts).all(|i| {
+                                !matches!(i.fields, crate::gfx10::Fields::Ds { .. })
+                                    && i.name() != "s_barrier"
+                                    && !i.name().contains("atomic")
+                            })
+                        {
+                            let virtualized = lower::with_partitioned_waves(|| widen(c, native, base, why, true));
+                            report("virtualized guest waves", &virtualized);
+                            if matches!(&virtualized, Ok((_, Some(32)))) {
+                                if why && let Some(digest) = digest {
+                                    eprintln!("WAVE32 virtual compute container digest {digest}");
+                                }
+                                return virtualized.map(|(shader, _)| shader);
+                            }
+                        }
                     }
                 }
                 if strict {
@@ -562,7 +589,7 @@ fn widen(
     match native.io {
         // (a program whose waves are the host's meets no one: no barrier, any group)
         crate::native::StageIo::Cs(_) if !(native.wave64 && lower::host_max_wave() == 32) => {}
-        crate::native::StageIo::Cs(cs) if cs.threads.iter().product::<u32>() == 64 => {}
+        crate::native::StageIo::Cs(cs) if cs.threads.iter().product::<u32>() == 64 || lower::partitioned_waves() => {}
         crate::native::StageIo::Cs(cs) => {
             if why {
                 eprintln!("WAVE64-WIDE not tried: thread groups of {:?}", cs.threads);
@@ -690,6 +717,7 @@ fn emit_program(
     })?;
     let wave_size = l.wave_size;
     let shader = HostShader {
+        dispatch_x_multiplier: l.dispatch_x_multiplier,
         stage: native.stage,
         dxil: l.dxil,
         user_data: l.user_data,
@@ -1078,6 +1106,7 @@ mod tests {
             return;
         };
         let ps = super::HostShader {
+            dispatch_x_multiplier: 1,
             stage: crate::HwStage::Ps,
             dxil: constant_color(),
             user_data: Vec::new(),
@@ -1090,6 +1119,7 @@ mod tests {
         };
         let file = |var: &str, stage| {
             std::env::var(var).ok().map(|p| super::HostShader {
+                dispatch_x_multiplier: 1,
                 stage,
                 dxil: std::fs::read(p).unwrap(),
                 user_data: Vec::new(),
@@ -1376,6 +1406,7 @@ mod tests {
             return;
         };
         let cs = super::HostShader {
+            dispatch_x_multiplier: 1,
             stage: super::HwStage::Cs,
             dxil,
             user_data: l.user_data,
@@ -1529,6 +1560,7 @@ mod tests {
         #[cfg(windows)]
         if let Ok(host) = super::host::Host::new(false) {
             let cs = super::HostShader {
+                dispatch_x_multiplier: 1,
                 stage: super::HwStage::Cs,
                 dxil,
                 user_data: l.user_data,

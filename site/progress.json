@@ -63,7 +63,7 @@
           "id": "d3d12-pipelines",
           "label": "RTX pipeline checks by shader",
           "status": "Partial",
-          "evidence": "A D3D12 debug-layer test on the RTX 5060 Ti found that the three rejected compute shaders requested 64-lane waves on a device that supports 32. Particle visibility and alpha prefilter now emit validated 32-lane DXIL and create D3D12 pipelines in both the standalone probe and a fresh Loam boot. The game bound both pipelines as the opening scene loaded. The first captures were black, then the game rendered the prison yard. Frame times in the opening scene stayed above the 33.3 ms target. Defrag still requests 64 lanes because its divergent loop needs ordered shared-memory operations and cross-lane reads. The shadow shader still stops in the translator when it needs to exchange a lane mask across divergent threads.",
+          "evidence": "A D3D12 debug-layer test on the RTX 5060 Ti found that the three rejected compute shaders requested 64-lane waves on a device that supports 32. Particle visibility and alpha prefilter now emit validated 32-lane DXIL and create D3D12 pipelines in both the standalone probe and a fresh Loam boot. The game bound both pipelines as the opening scene loaded. The experimental separate-workgroup path also emitted valid 32-lane DXIL for cascading shadows and issued its indirect dispatch in a fresh RTX replay. The prison yard rendered with visual artifacts. A separate timing run measured a 157 ms median in the later opening scene. Defrag still needs ordered shared-memory operations across both waves and requests 64 lanes.",
           "doneWhen": "Resolve host refusals and shader translation failures for mission pipelines. Verify the required draws and dispatches during movement.",
           "checks": [
             { "label": "Create pipelines to render the first room", "status": "Verified" },
@@ -71,7 +71,7 @@
             { "label": "Resolve the D3D12 compute pipeline-state rejection for vfx_triangleClip:CS_DefragHeap_ComputeRelocations_9e6def81_Wrapped (0x80070057)", "status": "Partial", "mapLabel": "vfx_triangleClip:CS_DefragHeap_ComputeRelocations_9e6def81_Wrapped" },
             { "label": "Create the D3D12 compute pipeline for GpuParticleUpdate:CS_Visibility_7226f52c_Wrapped on the RTX", "status": "Verified", "mapLabel": "GpuParticleUpdate:CS_Visibility_7226f52c_Wrapped" },
             { "label": "Create the D3D12 compute pipeline for alphaResolve:CS_AlphTransmissionPrefilterMip_610a2fad_Wrapped on the RTX", "status": "Verified", "mapLabel": "alphaResolve:CS_AlphTransmissionPrefilterMip_610a2fad_Wrapped" },
-            { "label": "Translate the divergent lane-mask exchange in cascadeshadows_rendering:CS_ShadowRenderTiledCascadesAlphaCBPPPC_9945271c_Wrapped", "status": "Pending", "mapLabel": "cascadeshadows_rendering:CS_ShadowRenderTiledCascadesAlphaCBPPPC_9945271c_Wrapped" },
+            { "label": "Create and dispatch cascadeshadows_rendering:CS_ShadowRenderTiledCascadesAlphaCBPPPC_9945271c_Wrapped with the experimental Wave32 path", "status": "Verified", "mapLabel": "cascadeshadows_rendering:CS_ShadowRenderTiledCascadesAlphaCBPPPC_9945271c_Wrapped" },
             { "label": "Verify required direct and indirect draws during movement", "status": "Unverified" }
           ]
         },
