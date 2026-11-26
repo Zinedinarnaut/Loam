@@ -308,12 +308,12 @@ $mapWork = @{}
 foreach ($key in $mapTasks.Keys) {
     $tile = $null
     if ($roadmapById.TryGetValue($mapTasks[$key], [ref]$tile)) {
-        $remaining = @($tile.Checks | Where-Object { $_.Status -cne 'Verified' -and $_.MapLabel })
-        if ($remaining.Count) {
+        $mapChecks = @($tile.Checks | Where-Object { $_.MapLabel -and ($key -ceq 'pipelines' -or $_.Status -cne 'Verified') })
+        if ($mapChecks.Count) {
             $mapWork[$key] = [pscustomobject]@{
                 Label = $tile.Label
                 Anchor = "task-$($tile.Id)"
-                Lines = @($remaining | ForEach-Object MapLabel)
+                Checks = $mapChecks
             }
         }
     }
@@ -323,7 +323,7 @@ $statusMap = $sourceMap
 $statusAlt = "Loam status map with $registryTotal resolver entries and $shaderTotal named GFX10 opcode slots out of $shaderSlots"
 if ($mapWork.Count) {
     $statusMap = New-LoamStatusMap -Groups $groups -ShaderGroups $shaderGroups -WorkItems $mapWork
-    $statusAlt += '. Selected tiles show the remaining work, with details below.'
+    $statusAlt += '. Selected tiles show translation checks and RTX pipeline status, with details below.'
 }
 $roadmapHtml = ''
 if ($roadmapTracks.Count) {

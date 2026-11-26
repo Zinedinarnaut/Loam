@@ -10,7 +10,7 @@ function New-LoamStatusMap {
     Opcode dictionaries with name, count, slotCount, a panel (alu or memory),
     and the zero-based codes of named slots within that family.
     .PARAMETER WorkItems
-    Optional captions for shader tile names and the missing pipelines group.
+    Optional shader translation and pipeline checks, with their map labels and statuses.
     #>
     [CmdletBinding()]
     [OutputType([string])]
@@ -34,15 +34,15 @@ function New-LoamStatusMap {
 
     function Add-ShaderWork($Work, [int]$X, [int]$Y, [int]$W, [int]$H) {
         $step = 14
-        $height = 18 + $step * $Work.Lines.Count
+        $height = 18 + $step * $Work.Checks.Count
         $top = $Y + $H - $height - 3
         $left = $X + 7
         $anchor = ConvertTo-MapLabel $Work.Anchor
         $content.Add("    <a href='progress.html#$anchor' class='shader-work'>")
         $content.Add("      <rect x='$($X + 3)' y='$top' width='$($W - 6)' height='$height' class='group' fill-opacity='.92'/>")
         $content.Add("      <text x='$left' y='$($top + 13)' class='group-label'>Mission DXIL checks</text>")
-        for ($index = 0; $index -lt $Work.Lines.Count; $index++) {
-            $label = ConvertTo-MapLabel $Work.Lines[$index]
+        for ($index = 0; $index -lt $Work.Checks.Count; $index++) {
+            $label = ConvertTo-MapLabel $Work.Checks[$index].MapLabel
             $baseline = $top + 13 + ($index + 1) * $step
             $content.Add("      <text x='$left' y='$baseline' class='group-label'>$label</text>")
         }
@@ -57,11 +57,11 @@ function New-LoamStatusMap {
     function Add-PipelineWork($Work, [int]$Top) {
         $name = ConvertTo-MapLabel $Work.Label
         $anchor = ConvertTo-MapLabel $Work.Anchor
-        $columns = [Math]::Min(4, $Work.Lines.Count)
+        $columns = [Math]::Min(4, $Work.Checks.Count)
         $rowHeight = 32
         $content.Add("  <text x='4' y='$($Top + 14)' class='section-label'>$name</text>")
         $content.Add("  <a href='progress.html#$anchor' class='pipeline-work'>")
-        for ($index = 0; $index -lt $Work.Lines.Count; $index++) {
+        for ($index = 0; $index -lt $Work.Checks.Count; $index++) {
             $column = $index % $columns
             $row = [int][Math]::Floor($index / $columns)
             $left = 4 + [int][Math]::Floor(992 * $column / $columns)
@@ -69,10 +69,14 @@ function New-LoamStatusMap {
             $tileY = $Top + 20 + $row * $rowHeight
             $tileWidth = $right - $left
             $textWidth = $tileWidth - 29
-            $caption = $Work.Lines[$index]
+            $check = $Work.Checks[$index]
+            $caption = $check.MapLabel
             $label = ConvertTo-MapLabel $caption
+            $status = ConvertTo-MapLabel $check.Status
+            $marker = if ($check.Status -ceq 'Verified') { 'pipeline-verified' } else { 'pipeline-outstanding' }
+            $content.Add("    <g><title>$label ($status)</title>")
             $content.Add("    <rect x='$left' y='$tileY' width='$tileWidth' height='$rowHeight' class='group'/>")
-            $content.Add("    <rect x='$($left + 6)' y='$($tileY + 10)' width='11' height='11' fill='#6e7681'/>")
+            $content.Add("    <rect x='$($left + 6)' y='$($tileY + 10)' width='11' height='11' class='$marker'/>")
             if ((Estimate-WorkLabelWidth $caption) -le $textWidth) {
                 $content.Add("    <text x='$($left + 23)' y='$($tileY + 20)' class='group-label'>$label</text>")
             } else {
@@ -85,7 +89,6 @@ function New-LoamStatusMap {
                 $split = if ($null -eq $boundary) { $middle } else { $boundary.Index }
                 if ([char]::IsLowSurrogate($caption[$split])) { $split-- }
                 $parts = @($caption.Substring(0, $split).TrimEnd(), $caption.Substring($split).TrimStart())
-                $content.Add("    <g><title>$label</title>")
                 for ($line = 0; $line -lt $parts.Count; $line++) {
                     $squeeze = if ((Estimate-WorkLabelWidth $parts[$line]) -gt $textWidth) {
                         " textLength='$textWidth' lengthAdjust='spacingAndGlyphs'"
@@ -93,12 +96,12 @@ function New-LoamStatusMap {
                     $part = ConvertTo-MapLabel $parts[$line]
                     $content.Add("      <text x='$($left + 23)' y='$($tileY + 13 + 13 * $line)' class='group-label'$squeeze>$part</text>")
                 }
-                $content.Add('    </g>')
             }
             $content.Add("    <rect x='$left' y='$tileY' width='$tileWidth' height='$rowHeight' class='group-border'/>")
+            $content.Add('    </g>')
         }
         $content.Add('  </a>')
-        return $Top + 20 + $rowHeight * [int][Math]::Ceiling($Work.Lines.Count / $columns)
+        return $Top + 20 + $rowHeight * [int][Math]::Ceiling($Work.Checks.Count / $columns)
     }
 
     $libraries = @(foreach ($entry in $Groups) {
@@ -266,12 +269,20 @@ function New-LoamStatusMap {
     Add-ShaderSection @($opcodes | Where-Object Panel -EQ 'memory') 'GFX10 memory and export opcodes' 509 426 487 279
 
     $legendY = 728
+    $pipelineLegend = ''
     $description = 'Library tiles show resolver registrations. Shader tiles show decoder recognition by encoding family, including the VOP3 forms of VOPC, VOP2, and VOP1.'
     if ($WorkItems.Contains('pipelines')) {
         $legendY = (Add-PipelineWork $WorkItems['pipelines'] 721) + 12
+        $description += ' Pipeline tiles use green for verified checks and gray for outstanding checks.'
+        $pipelineLegend = @"
+  <rect x="520" y="$legendY" width="11" height="11" class="pipeline-verified"/>
+  <text x="536" y="$($legendY + 10)" class="legend">Verified pipeline check</text>
+  <rect x="680" y="$legendY" width="11" height="11" class="pipeline-outstanding"/>
+  <text x="696" y="$($legendY + 10)" class="legend">Outstanding pipeline check</text>
+"@
     }
-    if ($WorkItems.Count) {
-        $description += ' Selected tiles show remaining translation and pipeline work.'
+    if ($WorkItems.Contains('VOP3') -or $WorkItems.Contains('SMEM')) {
+        $description += ' Selected shader tiles show remaining translation checks.'
     }
     $height = $legendY + 20
 
@@ -286,8 +297,8 @@ function New-LoamStatusMap {
     .legend { font-size: 12px; }
     .group { fill: #161b22; }
     .group-border { fill: none; stroke: #0d1117; stroke-width: 1.5; }
-    .registry-cell, .named { fill: #2ea043; }
-    .unnamed { fill: #6e7681; }
+    .registry-cell, .named, .pipeline-verified { fill: #2ea043; }
+    .unnamed, .pipeline-outstanding { fill: #6e7681; }
   </style>
   <rect width="1000" height="$height" fill="#0d1117"/>
 $($content -join [Environment]::NewLine)
@@ -295,6 +306,7 @@ $($content -join [Environment]::NewLine)
   <text x="20" y="$($legendY + 10)" class="legend">Named opcode slot</text>
   <rect x="147" y="$legendY" width="11" height="11" class="unnamed"/>
   <text x="163" y="$($legendY + 10)" class="legend">Unnamed opcode slot, including reserved encodings</text>
+$pipelineLegend
 </svg>
 "@
 }

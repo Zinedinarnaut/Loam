@@ -24,3 +24,6 @@
 - Scoped the pipeline tiles to the observed RTX opening-room work and distinguished rejected shader signatures from per-frame skips.
 - Rechecked pipeline failures on an RTX 5060 Ti with runtime `4e137e5`. The status generator can wrap longer local labels inside the same tile grid.
 - Listed the four shader entry names tied to the verified RTX failures in the README status grid.
+- Enabled wave32 translation for a single 64-lane compute wave when Loam can verify that the widened branches synchronize safely. The particle visibility shader passed DXIL validation and created its D3D12 pipeline on an RTX 5060 Ti in a standalone probe and a fresh Loam boot, where the game also bound the pipeline.
+- Fixed descriptor tracking for memory accesses guarded by EXEC. The alpha prefilter now passes DXIL validation and creates its D3D12 pipeline on the RTX in a standalone probe and a fresh Loam boot.
+- Kept verified shader checks in the README grid and gave them a green marker. Particle visibility and alpha prefilter passed their pipeline checks. Defrag and cascading shadows still have open checks.
