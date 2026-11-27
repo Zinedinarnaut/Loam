@@ -3,6 +3,7 @@
 ## 2026-11-28
 
 - Checked the shared-memory layout at all five barriers in Defrag. Rebuilding the logical thread index and one constant on resume brings the largest layout to 8,068 of 8,192 dwords, with 124 dwords available for scheduler and exchange state. The in-game pipeline check remains open.
+- Captured the same two Cascading Shadows textures immediately before the target dispatch and before its follower on one RTX command list. The R8 plane and RGB channels of the RGBA8 texture matched at both points. The effect on the rendered scene remains open.
 - Ran the alternating upload-gap test on the RTX 5060 Ti. It reached the opening prison window and stopped at the Windows memory reserve before the full comparison finished.
 
 ## 2026-11-27
