@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-28
+
+- Checked the shared-memory layout at all five barriers in Defrag. Rebuilding the logical thread index and one constant on resume brings the largest layout to 8,068 of 8,192 dwords, with 124 dwords available for scheduler and exchange state. The in-game pipeline check remains open.
+- Ran the alternating upload-gap test on the RTX 5060 Ti. It reached the opening prison window and stopped at the Windows memory reserve before the full comparison finished.
+
 ## 2026-11-27
 
 - Compared changed-only and full buffer uploads on RTX 5060 Ti with Wide hashing. In the same stationary Series S scene, sampled card uploads fell from 107.5 to 46.2 MB per frame. Median frame time moved from 190 to 188 ms across five alternating phases per mode.

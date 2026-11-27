@@ -44,7 +44,7 @@
           "id": "frame-rate",
           "label": "Frame rate",
           "status": "Pending",
-          "evidence": "The RTX 5060 Ti measured 5.15 FPS and 194.36 ms per frame in a stationary 60-second GPU upload sample. In a separate alternating test with Wide hashing, changed-only buffer uploads reduced sampled card traffic from 107.5 to 46.2 MB per frame. Median frame time moved from 190 to 188 ms. Both tests used a stationary camera.",
+          "evidence": "The RTX 5060 Ti measured 5.15 FPS and 194.36 ms per frame in a stationary 60-second GPU upload sample. In a separate alternating test with Wide hashing, changed-only buffer uploads reduced sampled card traffic from 107.5 to 46.2 MB per frame. Median frame time moved from 190 to 188 ms. The November 28 upload-gap trial reached the stationary prison window and stopped at the Windows memory reserve before the planned comparison finished.",
           "doneWhen": "Reduce submission, GPU, and copy-back time, then meet the published FPS target during sustained movement on the RTX 5060 Ti. Report mean, median, and 95th-percentile frame times.",
           "checks": [
             { "label": "Stationary RTX benchmark", "status": "Verified" },
@@ -63,7 +63,7 @@
           "id": "d3d12-pipelines",
           "label": "RTX pipeline checks by shader",
           "status": "Partial",
-          "evidence": "November 27, 2026. On the RTX 5060 Ti, particle visibility and alpha prefilter created D3D12 pipelines and bound them during the opening scene. Cascading Shadows created a Wave32 pipeline and recorded indirect dispatches. A selective diagnostic captured both shadow textures at the same dispatch boundary with the pass enabled and skipped. The scene differed between those replays, so the visual result remains open. Synthetic Defrag tests verified shared-memory compare-and-swap and compact per-wave spill storage on the RTX. The game's Defrag pipeline still requests 64 lanes and fails pipeline creation. It needs the shared-memory scheduler integrated into shader translation.",
+          "evidence": "November 28, 2026. On the RTX 5060 Ti, particle visibility and alpha prefilter created D3D12 pipelines and bound them during the opening scene. Cascading Shadows created a Wave32 pipeline and recorded indirect dispatches. The two captured shadow textures still need a matched visual check. Synthetic Defrag tests verified shared-memory compare-and-swap and compact per-wave spill storage on the RTX. A CPU audit of the actual Defrag shader verified coverage at all five barrier resumes. The largest layout needs 8,068 of 8,192 dwords before scheduler and exchange state. The game's Defrag pipeline still fails creation. Shader translation needs to use this layout and fit its remaining state in the 124 available dwords.",
           "doneWhen": "Resolve host refusals and shader translation failures for mission pipelines. Verify the required draws and dispatches during movement.",
           "checks": [
             { "label": "Create pipelines to render the first room", "status": "Verified" },
