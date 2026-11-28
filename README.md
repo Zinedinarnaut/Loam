@@ -8,7 +8,7 @@ Loam is a Windows compatibility layer for Xbox Series software. It runs the game
 
 ## Status
 
-**Nov 28 update.** Three of the four RTX pipeline checks are verified. A CPU check found a shared-memory layout that fits the live values at all five Defrag barriers. The RTX capture showed identical R8 and RGB values before and after one Cascading Shadows dispatch. The Defrag pipeline and the shadow pass’s effect on the rendered scene still need verification. [Pipeline details](https://zinedinarnaut.github.io/Loam/progress.html#task-d3d12-pipelines)
+**Nov 28 update.** Three of the four RTX pipeline checks are verified. The Defrag layout fits at all five barriers, and the first cross-wave exchange still exceeds shared memory. The RTX capture found zero workgroups in the first sampled Cascading Shadows dispatch. A later shadow invocation still needs a visual check. [Pipeline details](https://zinedinarnaut.github.io/Loam/progress.html#task-d3d12-pipelines)
 
 [![System libraries](https://zinedinarnaut.github.io/Loam/registry.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html#registry) [![Named GFX10 ALU opcode slots](https://zinedinarnaut.github.io/Loam/gfx10-alu.svg?v=3)](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) [![Named GFX10 memory and export opcode slots](https://zinedinarnaut.github.io/Loam/gfx10-memory.svg?v=3)](https://zinedinarnaut.github.io/Loam/progress.html#shader-opcodes) [![Opening scene benchmark](https://zinedinarnaut.github.io/Loam/fps.svg?v=2)](https://zinedinarnaut.github.io/Loam/progress.html#benchmark)
 
